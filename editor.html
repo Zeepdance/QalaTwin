@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D редактор — Building Inspector + Civil Engineering</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+
+    /* LEFT PANEL */
+    #info{
+      position:absolute;
+      top:20px; left:20px;
+      background: rgba(20,20,20,0.95);
+      backdrop-filter: blur(5px);
+      color:#fff;
+      padding:20px;
+      border-radius:12px;
+      border:1px solid #444;
+      width:300px;
+      z-index:100;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+      pointer-events: all;
+
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      transition: all 0.3s ease;
+    }
+
+    #info.collapsed {
+      width: 70px;
+      padding: 20px 10px;
+    }
+
+    #info.collapsed h2,
+    #info.collapsed .btn:not(.collapse-btn),
+    #info.collapsed .slider-container,
+    #info.collapsed .coord-control,
+    #info.collapsed .export-import,
+    #info.collapsed #selected-info,
+    #info.collapsed h3,
+    #info.collapsed .hint,
+    #info.collapsed .status,
+    #info.collapsed .value-badge {
+      display: none;
+    }
+
+    #info.collapsed .btn {
+      display: none;
+    }
+
+    #info.collapsed #addCubeBtn,
+    #info.collapsed #deleteBtn,
+    #info.collapsed #sendToMapBtn {
+      display: block;
+      width: 50px;
+      height: 50px;
+      padding: 0;
+      border-radius: 10px;
+      font-size: 24px;
+      line-height: 50px;
+      text-align: center;
+      margin: 5px auto;
+    }
+
+    #info.collapsed #addCubeBtn span,
+    #info.collapsed #deleteBtn span,
+    #info.collapsed #sendToMapBtn span {
+      display: none;
+    }
+
+    #info.collapsed #addCubeBtn::before {
+      content: "+";
+    }
+
+    #info.collapsed #deleteBtn::before {
+      content: "🗑";
+    }
+
+    #info.collapsed #sendToMapBtn::before {
+      content: "📤";
+    }
+
+    /* RIGHT PANEL */
+    #inspector{
+      position:absolute;
+      top:20px; right:20px;
+      background: rgba(20,20,20,0.95);
+      backdrop-filter: blur(6px);
+      color:#fff;
+      padding:18px;
+      border-radius:12px;
+      border:1px solid #444;
+      width:360px;
+      z-index:100;
+      box-shadow: 0 6px 26px rgba(0,0,0,0.8);
+      pointer-events: all;
+
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      transition: all 0.3s ease;
+    }
+
+    #inspector.collapsed {
+      width: 70px;
+      padding: 18px 10px;
+    }
+
+    #inspector.collapsed h2,
+    #inspector.collapsed .ins-section,
+    #inspector.collapsed .field,
+    #inspector.collapsed button:not(.collapse-btn),
+    #inspector.collapsed .kv,
+    #inspector.collapsed .chip,
+    #inspector.collapsed .warn,
+    #inspector.collapsed .ok,
+    #inspector.collapsed .hint {
+      display: none;
+    }
+
+    /* Кнопки сворачивания */
+    .collapse-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 40px;
+      height: 40px;
+      background: #333;
+      border: 1px solid #666;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+      z-index: 200;
+    }
+
+    .collapse-btn:hover {
+      background: #555;
+      border-color: #888;
+    }
+
+    #inspector .collapse-btn {
+      right: 10px;
+      left: auto;
+    }
+
+    #info .collapse-btn {
+      right: 10px;
+      left: auto;
+    }
+
+    #info.collapsed .collapse-btn {
+      display: flex;
+    }
+
+    #inspector.collapsed .collapse-btn {
+      display: flex;
+    }
+
+    #info h2{
+      margin:0 0 15px 0;
+      color:#fff;
+      font-size:1.4rem;
+      border-bottom: 1px solid #444;
+      padding-bottom: 8px;
+      font-weight: 300;
+      letter-spacing: 1px;
+    }
+
+    #inspector h2{
+      margin:0 0 12px 0;
+      color:#fff;
+      font-size:1.15rem;
+      border-bottom: 1px solid #444;
+      padding-bottom: 8px;
+      font-weight: 300;
+      letter-spacing: 1px;
+    }
+
+    /* nice scrollbars */
+    #info::-webkit-scrollbar,
+    #inspector::-webkit-scrollbar { width: 10px; }
+    #info::-webkit-scrollbar-thumb,
+    #inspector::-webkit-scrollbar-thumb{
+      background: rgba(255,255,255,0.2);
+      border-radius: 999px;
+      border: 2px solid rgba(0,0,0,0.5);
+    }
+    #info::-webkit-scrollbar-track,
+    #inspector::-webkit-scrollbar-track{
+      background: rgba(0,0,0,0.3);
+      border-radius: 999px;
+    }
+
+    .btn{
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      padding:10px 15px;
+      font-size:1rem;
+      font-weight:300;
+      border-radius:6px;
+      cursor:pointer;
+      margin:5px 0;
+      transition: 0.2s;
+      width:100%;
+      letter-spacing: 0.5px;
+    }
+    .btn:hover{ background: #444; border-color: #777; }
+    .btn.secondary{
+      background: #222;
+      color:#fff;
+      border:1px solid #444;
+    }
+    .btn.secondary:hover{ background: #2a2a2a; }
+
+    .btn.danger{
+      background: #442222;
+      color:#fff;
+      border:1px solid #663333;
+    }
+    .btn.danger:hover{
+      background: #552222;
+    }
+
+    .btn.primary{
+      background: #2a4a2a;
+      border-color: #3a6a3a;
+    }
+    .btn.primary:hover{
+      background: #3a5a3a;
+    }
+
+    .slider-container{ margin-bottom: 15px; }
+    .slider-container label{
+      display:flex; justify-content:space-between;
+      color:#ccc; font-size:0.9rem; margin-bottom:5px;
+    }
+    .slider-container input{ width:100%; accent-color: #666; }
+
+    .coord-control{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:5px;
+      margin:15px 0;
+    }
+    .coord-btn{
+      background:#222;
+      border:1px solid #444;
+      color:#fff;
+      padding:8px;
+      border-radius:4px;
+      cursor:pointer;
+      font-weight:300;
+    }
+    .coord-btn:hover{ background:#2a2a2a; border-color:#666; }
+
+    #selected-info{
+      background:#222;
+      padding:12px;
+      border-radius:8px;
+      text-align:center;
+      color:#ccc;
+      font-size:0.9rem;
+      margin:15px 0;
+      border:1px dashed #444;
+    }
+    .export-import{
+      display:flex;
+      gap:5px;
+      margin-top:10px;
+    }
+    .export-import button{ flex:1; }
+
+    .value-badge{
+      background:#222;
+      padding:3px 8px;
+      border-radius:20px;
+      font-family: monospace;
+      color:#fff;
+      border: 1px solid #444;
+    }
+    .status{
+      color:#0f0;
+      font-size:0.8rem;
+      text-align:center;
+      margin-top:10px;
+      opacity:0.8;
+    }
+
+    /* Inspector blocks */
+    .ins-section{
+      margin-top:12px;
+      padding:12px;
+      border-radius:10px;
+      border: 1px solid #333;
+      background: rgba(0,0,0,0.2);
+    }
+    .ins-title{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      font-weight:400;
+      font-size:0.95rem;
+      margin-bottom:8px;
+      color: #fff;
+    }
+    .chip{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid #444;
+      background: #222;
+      color: #fff;
+    }
+    .kv{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px 10px;
+      font-size:0.9rem;
+      color: #ddd;
+    }
+    .kv .k{ color: #aaa; }
+    .kv .v{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      color: #fff;
+    }
+
+    .field{ display:grid; gap:6px; margin-top:10px; }
+    .field label{ color: #aaa; font-size:0.85rem; }
+    .field input,.field select,.field textarea{
+      width:100%;
+      padding:10px 10px;
+      border-radius:8px;
+      border:1px solid #333;
+      background: #1a1a1a;
+      color: #fff;
+      outline:none;
+    }
+    .field input:focus,.field select:focus,.field textarea:focus{
+      border-color: #666;
+    }
+    .field textarea{ min-height: 70px; resize: vertical; }
+
+    .warn{
+      margin-top:10px;
+      padding:10px;
+      border-radius:10px;
+      border:1px solid #663333;
+      background: #332222;
+      color: #ffaaaa;
+      font-size:0.88rem;
+      line-height:1.35;
+      display:none;
+    }
+    .ok{
+      margin-top:10px;
+      padding:10px;
+      border-radius:10px;
+      border:1px solid #336633;
+      background: #223322;
+      color: #aaffaa;
+      font-size:0.88rem;
+      line-height:1.35;
+      display:none;
+    }
+
+    .hint{
+      margin-top:10px;
+      padding:10px;
+      border-radius:10px;
+      border:1px solid #333;
+      background: #1a1a1a;
+      color: #aaa;
+      font-size:0.85rem;
+      line-height:1.35;
+    }
+  </style>
+</head>
+<body>
+  <!-- LEFT PANEL -->
+  <div id="info">
+    <button class="collapse-btn" id="collapseLeftBtn" onclick="toggleLeftPanel()">◀</button>
+    
+    <h2>3D КОНСТРУКТОР</h2>
+
+    <button class="btn" id="addCubeBtn"><span>+ Добавить здание</span></button>
+    <button class="btn danger" id="deleteBtn"><span>🗑 Удалить выбранное</span></button>
+    <button class="btn primary" id="sendToMapBtn"><span>📤 Отправить на карту</span></button>
+
+    <div class="hint">
+      Выбор: кликни по зданию<br>
+      Удаление: Delete/Backspace
+    </div>
+
+    <h3 style="margin: 15px 0 10px; color: #fff; font-weight: 300;">РАЗМЕРЫ</h3>
+    <div class="slider-container">
+      <label>Ширина <span id="widthVal" class="value-badge">1.0 м</span></label>
+      <input type="range" id="widthSlider" min="0.2" max="3.0" step="0.1" value="1.0">
+    </div>
+    <div class="slider-container">
+      <label>Высота <span id="heightVal" class="value-badge">1.2 м</span></label>
+      <input type="range" id="heightSlider" min="0.2" max="6.0" step="0.1" value="1.2">
+    </div>
+    <div class="slider-container">
+      <label>Глубина <span id="depthVal" class="value-badge">1.0 м</span></label>
+      <input type="range" id="depthSlider" min="0.2" max="3.0" step="0.1" value="1.0">
+    </div>
+
+    <h3 style="margin: 15px 0 10px; color: #fff; font-weight: 300;">ПОЗИЦИЯ (локально)</h3>
+    <div class="coord-control">
+      <button class="coord-btn" id="moveLeft">◀ X-</button>
+      <button class="coord-btn" id="moveRight">X+ ▶</button>
+      <button class="coord-btn" id="moveDown">Y- ▼</button>
+      <button class="coord-btn" id="moveUp">Y+ ▲</button>
+      <button class="coord-btn" id="moveBack">Z- ⬇</button>
+      <button class="coord-btn" id="moveForward">Z+ ⬆</button>
+    </div>
+
+    <div id="selected-info">👆 Кликни по зданию для выбора</div>
+
+    <div class="export-import">
+      <button class="btn secondary" id="exportBtn">📤 Экспорт</button>
+      <button class="btn secondary" id="importBtn">📥 Импорт</button>
+    </div>
+    <button class="btn secondary" id="copyToClipboardBtn">📋 Копировать JSON</button>
+
+    <div id="statusMsg" class="status"></div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="inspector">
+    <button class="collapse-btn" id="collapseRightBtn" onclick="toggleRightPanel()">▶</button>
+    
+    <h2>BUILDING INSPECTOR</h2>
+
+    <div class="ins-section">
+      <div class="ins-title">
+        <span>Текущий объект</span>
+        <span id="bId" class="chip">—</span>
+      </div>
+
+      <div class="kv">
+        <div class="k">Позиция</div><div class="v" id="bPos">—</div>
+        <div class="k">Размеры (м)</div><div class="v" id="bSize">—</div>
+        <div class="k">Пятно застройки</div><div class="v" id="bFootprint">—</div>
+        <div class="k">Объём</div><div class="v" id="bVolume">—</div>
+        <div class="k">Высота</div><div class="v" id="bHeightM">—</div>
+        <div class="k">Этажей</div><div class="v" id="bFloorsAuto">—</div>
+        <div class="k">Назначение</div><div class="v" id="bUseTag">—</div>
+      </div>
+
+      <div id="warnBox" class="warn"></div>
+      <div id="okBox" class="ok"></div>
+    </div>
+
+    <div class="ins-section">
+      <div class="ins-title">
+        <span>Данные для архитекторов</span>
+        <span class="chip">meta</span>
+      </div>
+
+      <div class="field">
+        <label>Название здания</label>
+        <input id="metaName" placeholder="Напр. ЖК «Altai Tower»" />
+      </div>
+
+      <div class="field">
+        <label>Назначение</label>
+        <select id="metaUse">
+          <option value="residential">Жилое</option>
+          <option value="office">Офис</option>
+          <option value="mixed">Смешанное</option>
+          <option value="school">Школа</option>
+          <option value="hospital">Больница</option>
+          <option value="mall">ТЦ</option>
+          <option value="industrial">Промышленное</option>
+          <option value="other">Другое</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Материал фасада</label>
+        <input id="metaMaterial" placeholder="Стекло/бетон/кирпич..." />
+      </div>
+
+      <div class="field">
+        <label>Комментарий</label>
+        <textarea id="metaNotes" placeholder="Ограничения по высоте, парковка, двор..."></textarea>
+      </div>
+
+      <button class="btn secondary" id="applyMetaBtn">✓ Сохранить</button>
+    </div>
+
+    <div class="ins-section">
+      <div class="ins-title">
+        <span>Civil Engineering</span>
+        <span class="chip">estimates</span>
+      </div>
+
+      <div class="field">
+        <label>Конструкция</label>
+        <select id="ceSystem">
+          <option value="rc_frame">Ж/б каркас</option>
+          <option value="steel_frame">Стальной каркас</option>
+          <option value="masonry">Кирпич/блоки</option>
+          <option value="timber">Дерево</option>
+          <option value="modular">Модульное</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Грунт</label>
+        <select id="ceSoil">
+          <option value="rock">Скальный</option>
+          <option value="dense">Плотный</option>
+          <option value="medium" selected>Средний</option>
+          <option value="soft">Слабый</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Сложность</label>
+        <select id="ceComplexity">
+          <option value="low">Низкая</option>
+          <option value="mid" selected>Средняя</option>
+          <option value="high">Высокая</option>
+        </select>
+      </div>
+
+      <div class="kv" style="margin-top:10px">
+        <div class="k">GFA</div><div class="v" id="ceGfa">—</div>
+        <div class="k">Стоимость</div><div class="v" id="ceCost">—</div>
+        <div class="k">Срок стройки</div><div class="v" id="ceTime">—</div>
+        <div class="k">CO₂</div><div class="v" id="ceCo2">—</div>
+        <div class="k">Масса</div><div class="v" id="ceMass">—</div>
+        <div class="k">Нагрузка на грунт</div><div class="v" id="ceBearing">—</div>
+        <div class="k">Парковка</div><div class="v" id="ceParking">—</div>
+        <div class="k">Пиковый поток людей</div><div class="v" id="cePeopleFlow">—</div>
+      </div>
+    </div>
+
+    <div class="ins-section">
+      <div class="ins-title">
+        <span>Ограничения</span>
+        <span class="chip">rules</span>
+      </div>
+
+      <div class="kv">
+        <div class="k">1 unit</div><div class="v">= <span id="ruleScale">10</span> м</div>
+        <div class="k">Макс высота</div><div class="v"><span id="ruleMaxH">60</span> м</div>
+        <div class="k">Макс пятно</div><div class="v"><span id="ruleMaxF">2500</span> м²</div>
+        <div class="k">Рабочая зона</div><div class="v"><span id="ruleZone">±10</span> м</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // ======= ФУНКЦИИ ДЛЯ СВОРАЧИВАНИЯ =======
+    window.toggleLeftPanel = function() {
+      const panel = document.getElementById('info');
+      const btn = document.getElementById('collapseLeftBtn');
+      panel.classList.toggle('collapsed');
+      if (panel.classList.contains('collapsed')) {
+        btn.textContent = '▶';
+      } else {
+        btn.textContent = '◀';
+      }
+    };
+
+    window.toggleRightPanel = function() {
+      const panel = document.getElementById('inspector');
+      const btn = document.getElementById('collapseRightBtn');
+      panel.classList.toggle('collapsed');
+      if (panel.classList.contains('collapsed')) {
+        btn.textContent = '◀';
+      } else {
+        btn.textContent = '▶';
+      }
+    };
+
+    // ======= RULES / SCALE =======
+    const UNIT_TO_M = 10;        // 1 unit = 10 meters
+    const MAX_HEIGHT_M = 60;
+    const MAX_FOOTPRINT_M2 = 2500;
+    const ZONE_LIMIT_UNITS = 10;
+
+    // этажность будет считаться авто:
+    const FLOOR_HEIGHT_M = 3.2;  // средняя высота этажа
+    const ROOF_TECH_M = 1.0;     // тех. этаж/кровля (очень грубо)
+
+    // ======= CIVIL ENGINEERING (VERY rough heuristics) =======
+    const COST_PER_M2 = { rc_frame: 850, steel_frame: 950, masonry: 700, timber: 800, modular: 780 };
+    const CO2_PER_M2  = { rc_frame: 420, steel_frame: 520, masonry: 300, timber: 180, modular: 260 };
+    const DEADLOAD_KN_PER_M2 = { rc_frame: 7.5, steel_frame: 6.0, masonry: 8.5, timber: 4.5, modular: 5.5 };
+    const SOIL_BEARING_KPA = { rock: 600, dense: 300, medium: 150, soft: 80 };
+    const COMPLEXITY_MULT = { low: 0.9, mid: 1.0, high: 1.25 };
+
+    const USE_FACTORS = {
+      residential: { people_per_m2: 0.03,  parking_per_1000m2: 30 },
+      office:      { people_per_m2: 0.06,  parking_per_1000m2: 45 },
+      mixed:       { people_per_m2: 0.045, parking_per_1000m2: 40 },
+      school:      { people_per_m2: 0.08,  parking_per_1000m2: 20 },
+      hospital:    { people_per_m2: 0.07,  parking_per_1000m2: 35 },
+      mall:        { people_per_m2: 0.09,  parking_per_1000m2: 70 },
+      industrial:  { people_per_m2: 0.015, parking_per_1000m2: 15 },
+      other:       { people_per_m2: 0.04,  parking_per_1000m2: 30 }
+    };
+
+    // ======= Auto visual by use =======
+    const USE_VISUAL_PRESET = {
+      residential: { shapeType: "box",     facadeStyle: "bands",     color: 0xcccccc },
+      office:      { shapeType: "tower",   facadeStyle: "darkglass", color: 0xaaaaaa },
+      mixed:       { shapeType: "stepped", facadeStyle: "grid",      color: 0xbbbbbb },
+      school:      { shapeType: "lshape",  facadeStyle: "clean",     color: 0xdddddd },
+      hospital:    { shapeType: "box",     facadeStyle: "clean",     color: 0xeeeeee },
+      mall:        { shapeType: "stepped", facadeStyle: "bands",     color: 0xcccccc },
+      industrial:  { shapeType: "box",     facadeStyle: "grid",      color: 0x999999 },
+      other:       { shapeType: "box",     facadeStyle: "clean",     color: 0xffffff }
+    };
+
+    // --- Scene ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(5, 5, 5);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.screenSpacePanning = true;
+
+    // Lights
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(3, 8, 4);
+    dirLight.castShadow = true;
+    dirLight.receiveShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    const d = 12;
+    dirLight.shadow.camera.left = -d;
+    dirLight.shadow.camera.right = d;
+    dirLight.shadow.camera.top = d;
+    dirLight.shadow.camera.bottom = -d;
+    dirLight.shadow.camera.near = 2;
+    dirLight.shadow.camera.far = 20;
+    dirLight.shadow.bias = -0.0005;
+    scene.add(dirLight);
+
+    scene.add(new THREE.AmbientLight(0x333333));
+
+    const fillLight = new THREE.PointLight(0x444444, 0.5);
+    fillLight.position.set(0, 2, 2);
+    scene.add(fillLight);
+
+    // Grid
+    const gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0x444444);
+    gridHelper.position.y = 0;
+    scene.add(gridHelper);
+
+    // State
+    const cubes = [];
+    const planes = [];
+    let selectedCube = null;
+
+    // DOM
+    const bId = document.getElementById('bId');
+    const bPos = document.getElementById('bPos');
+    const bSize = document.getElementById('bSize');
+    const bFootprint = document.getElementById('bFootprint');
+    const bVolume = document.getElementById('bVolume');
+    const bHeightM = document.getElementById('bHeightM');
+    const bFloorsAuto = document.getElementById('bFloorsAuto');
+    const bUseTag = document.getElementById('bUseTag');
+    const warnBox = document.getElementById('warnBox');
+    const okBox = document.getElementById('okBox');
+
+    const metaName = document.getElementById('metaName');
+    const metaUse = document.getElementById('metaUse');
+    const metaMaterial = document.getElementById('metaMaterial');
+    const metaNotes = document.getElementById('metaNotes');
+    const applyMetaBtn = document.getElementById('applyMetaBtn');
+
+    const ceSystemEl = document.getElementById('ceSystem');
+    const ceSoilEl = document.getElementById('ceSoil');
+    const ceComplexityEl = document.getElementById('ceComplexity');
+
+    // Rules UI
+    document.getElementById('ruleScale').textContent = String(UNIT_TO_M);
+    document.getElementById('ruleMaxH').textContent = String(MAX_HEIGHT_M);
+    document.getElementById('ruleMaxF').textContent = String(MAX_FOOTPRINT_M2);
+    document.getElementById('ruleZone').textContent = `±${ZONE_LIMIT_UNITS}`;
+
+    // Helpers
+    function makeBuildingId(){ return Math.random().toString(16).slice(2, 8).toUpperCase(); }
+    function defaultMeta(){ return { name: "New Building", use: "residential", material: "concrete", notes: "" }; }
+    function defaultCE(){ return { system: "rc_frame", soil: "medium", complexity: "mid" }; }
+
+    function showStatus(msg){
+      const statusEl = document.getElementById('statusMsg');
+      statusEl.textContent = msg;
+      setTimeout(()=> statusEl.textContent = '', 3000);
+    }
+
+    // ======= floors AUTO from height =======
+    function floorsFromHeightMeters(hMeters){
+      // вычитаем кровлю/тех этаж, остаток делим на высоту этажа
+      const usable = Math.max(0.1, hMeters - ROOF_TECH_M);
+      return Math.max(1, Math.round(usable / FLOOR_HEIGHT_M));
+    }
+
+    // ======= Visual: build shapes (simple compositing) =======
+    function buildShapeForCube(cube, shapeType){
+      const keep = [];
+      cube.children.forEach(ch => { if (ch.isLineSegments) keep.push(ch); });
+      cube.clear();
+      keep.forEach(k => cube.add(k));
+
+      const baseMat = cube.material;
+
+      const addPart = (sx, sy, sz, ox, oy, oz) => {
+        const g = new THREE.BoxGeometry(1,1,1);
+        const m = baseMat.clone();
+        m.transparent = true;
+        m.opacity = baseMat.opacity ?? 0.95;
+
+        const part = new THREE.Mesh(g, m);
+        part.scale.set(sx, sy, sz);
+        part.position.set(ox, oy, oz);
+        part.castShadow = true;
+        part.receiveShadow = true;
+        cube.add(part);
+
+        const e = new THREE.EdgesGeometry(g);
+        const l = new THREE.LineSegments(e, new THREE.LineBasicMaterial({ color: 0x000000 }));
+        part.add(l);
+      };
+
+      if (shapeType === "box"){
+        addPart(1.0, 1.0, 1.0, 0, 0, 0);
+      } else if (shapeType === "tower"){
+        addPart(0.92, 0.35, 0.92, 0, -0.32, 0);
+        addPart(0.55, 0.95, 0.55, 0,  0.07, 0);
+      } else if (shapeType === "stepped"){
+        addPart(0.98, 0.55, 0.98, 0, -0.18, 0);
+        addPart(0.72, 0.45, 0.72, 0,  0.17, 0);
+        addPart(0.50, 0.35, 0.50, 0,  0.47, 0);
+      } else if (shapeType === "lshape"){
+        addPart(0.88, 0.72, 0.42, -0.14, -0.02,  0.06);
+        addPart(0.42, 0.72, 0.88,  0.22, -0.02, -0.14);
+      } else {
+        addPart(1.0, 1.0, 1.0, 0, 0, 0);
+      }
+    }
+
+    function applyFacadeStyle(cube, style){
+      const mats = [];
+      if (cube.material) mats.push(cube.material);
+      cube.traverse(obj => { if (obj.isMesh && obj.material) mats.push(obj.material); });
+
+      mats.forEach(m=>{
+        m.roughness = 0.5;
+        m.metalness = 0.1;
+        if (m.emissive){ m.emissive.setHex(0x000000); m.emissiveIntensity = 0.0; }
+
+        if (style === "darkglass"){
+          m.roughness = 0.2; m.metalness = 0.3;
+          if (m.color) m.color.offsetHSL(0, -0.2, -0.22);
+        }
+        if (style === "bands"){
+          if (m.emissive){ m.emissive.setHex(0x111111); m.emissiveIntensity = 0.55; }
+          m.roughness = 0.4;
+        }
+        if (style === "grid"){
+          if (m.emissive){ m.emissive.setHex(0x222222); m.emissiveIntensity = 0.7; }
+          m.roughness = 0.3;
+        }
+      });
+    }
+
+    function setCubeBaseColor(cube, hex){
+      cube.material.color.setHex(hex);
+      cube.traverse(obj => {
+        if (obj.isMesh && obj.material && obj !== cube){
+          obj.material.color.setHex(hex);
+        }
+      });
+    }
+
+    // ======= AUTO STYLE BY USE =======
+    function applyUsePreset(cube, use){
+      const preset = USE_VISUAL_PRESET[use] || USE_VISUAL_PRESET.other;
+      cube.userData.visual = { shapeType: preset.shapeType, facadeStyle: preset.facadeStyle };
+      buildShapeForCube(cube, preset.shapeType);
+      applyFacadeStyle(cube, preset.facadeStyle);
+      setCubeBaseColor(cube, preset.color);
+    }
+
+    // --- Create cube + plane ---
+    function createCubeWithPlane(size = 1.0, color = null, position = null) {
+      const grayScale = Math.random() * 0.3 + 0.5; // 0.5 - 0.8
+      const cubeColor = color || new THREE.Color().setScalar(grayScale);
+
+      const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+      const cubeMaterial = new THREE.MeshStandardMaterial({
+        color: cubeColor,
+        roughness: 0.5,
+        metalness: 0.1,
+        emissive: 0x000000,
+        transparent: true,
+        opacity: 0.95
+      });
+
+      const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+      cube.castShadow = true;
+      cube.receiveShadow = true;
+      cube.scale.set(size, size, size);
+
+      const planeWidth = size * 1.4;
+      const planeDepth = size * 1.4;
+      const planeGeometry = new THREE.BoxGeometry(planeWidth, 0.1, planeDepth);
+      const planeMaterial = new THREE.MeshStandardMaterial({
+        color: 0x222222,
+        roughness: 0.8,
+        metalness: 0.0,
+        emissive: 0x000000
+      });
+
+      const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+      plane.castShadow = true;
+      plane.receiveShadow = true;
+
+      const planeEdges = new THREE.EdgesGeometry(planeGeometry);
+      const planeLine = new THREE.LineSegments(planeEdges, new THREE.LineBasicMaterial({ color: 0x444444 }));
+      plane.add(planeLine);
+
+      if (position) cube.position.copy(position);
+      else { cube.position.x = (Math.random() - 0.5) * 4; cube.position.z = (Math.random() - 0.5) * 4; }
+
+      cube.position.y = size / 2 + 0.05;
+
+      plane.position.x = cube.position.x;
+      plane.position.y = 0.05;
+      plane.position.z = cube.position.z;
+
+      const edges = new THREE.EdgesGeometry(cubeGeometry);
+      const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000 }));
+      cube.add(line);
+
+      cube.userData.buildingId = makeBuildingId();
+      cube.userData.meta = defaultMeta();
+      cube.userData.ce = defaultCE();
+
+      applyUsePreset(cube, cube.userData.meta.use);
+
+      return { cube, plane };
+    }
+
+    function updatePlanePosition(cube, plane){
+      if (!cube || !plane) return;
+      plane.position.x = cube.position.x;
+      plane.position.z = cube.position.z;
+      plane.position.y = 0.05;
+    }
+
+    function updatePlaneSize(cube, plane){
+      if (!cube || !plane) return;
+      const newWidth = cube.scale.x * 1.4;
+      const newDepth = cube.scale.z * 1.4;
+
+      plane.geometry.dispose();
+      plane.geometry = new THREE.BoxGeometry(newWidth, 0.1, newDepth);
+
+      const toRemove = [];
+      plane.children.forEach(ch => { if (ch.isLineSegments) toRemove.push(ch); });
+      toRemove.forEach(ch => plane.remove(ch));
+
+      const newEdges = new THREE.EdgesGeometry(plane.geometry);
+      const newLine = new THREE.LineSegments(newEdges, new THREE.LineBasicMaterial({ color: 0x444444 }));
+      plane.add(newLine);
+    }
+
+    function updateSelectionHighlight(){
+      cubes.forEach(c=>{
+        c.material.emissive.setHex(0x000000);
+        c.material.opacity = 0.95;
+      });
+
+      if (selectedCube){
+        selectedCube.material.emissive.setHex(0x222222);
+        selectedCube.material.opacity = 1.0;
+
+        const pos = selectedCube.position;
+        document.getElementById('selected-info').innerHTML =
+          `✓ Выбран: здание<br>X=${pos.x.toFixed(2)} м Y=${pos.y.toFixed(2)} м Z=${pos.z.toFixed(2)} м`;
+      } else {
+        document.getElementById('selected-info').innerHTML = '👆 Кликни по зданию для выбора';
+      }
+
+      syncInspectorFromSelected();
+    }
+
+    function updateSliderValuesFromSelected(){
+      if (!selectedCube) return;
+      document.getElementById('widthSlider').value = selectedCube.scale.x;
+      document.getElementById('heightSlider').value = selectedCube.scale.y;
+      document.getElementById('depthSlider').value = selectedCube.scale.z;
+
+      document.getElementById('widthVal').textContent = selectedCube.scale.x.toFixed(1) + ' м';
+      document.getElementById('heightVal').textContent = selectedCube.scale.y.toFixed(1) + ' м';
+      document.getElementById('depthVal').textContent = selectedCube.scale.z.toFixed(1) + ' м';
+    }
+
+    function syncInspectorFromSelected(){
+      if (!selectedCube){
+        bId.textContent = "—";
+        bPos.textContent = "—";
+        bSize.textContent = "—";
+        bFootprint.textContent = "—";
+        bVolume.textContent = "—";
+        bHeightM.textContent = "—";
+        bFloorsAuto.textContent = "—";
+        bUseTag.textContent = "—";
+        warnBox.style.display = "none";
+        okBox.style.display = "none";
+        return;
+      }
+
+      selectedCube.userData.meta = selectedCube.userData.meta || defaultMeta();
+      selectedCube.userData.ce = selectedCube.userData.ce || defaultCE();
+
+      const wU = selectedCube.scale.x;
+      const hU = selectedCube.scale.y;
+      const dU = selectedCube.scale.z;
+
+      const x = selectedCube.position.x;
+      const y = selectedCube.position.y;
+      const z = selectedCube.position.z;
+
+      const wM = wU * UNIT_TO_M;
+      const hM = hU * UNIT_TO_M;
+      const dM = dU * UNIT_TO_M;
+
+      const footprintM2 = (wM * dM);
+      const volumeM3 = (wM * hM * dM);
+
+      const floorsAuto = floorsFromHeightMeters(hM);
+
+      bId.textContent = selectedCube.userData.buildingId || "—";
+      bPos.textContent = `x=${x.toFixed(2)} м y=${y.toFixed(2)} м z=${z.toFixed(2)} м`;
+      bSize.textContent = `${(wU*UNIT_TO_M).toFixed(1)} × ${(hU*UNIT_TO_M).toFixed(1)} × ${(dU*UNIT_TO_M).toFixed(1)} м`;
+      bFootprint.textContent = `${footprintM2.toFixed(0)} м²`;
+      bVolume.textContent = `${volumeM3.toFixed(0)} м³`;
+      bHeightM.textContent = `${hM.toFixed(1)} м`;
+      bFloorsAuto.textContent = `≈ ${floorsAuto} эт.`;
+      bUseTag.textContent = metaUse.options[metaUse.selectedIndex]?.text || "—";
+
+      const meta = selectedCube.userData.meta;
+      metaName.value = meta.name ?? "";
+      metaUse.value = meta.use ?? "residential";
+      metaMaterial.value = meta.material ?? "";
+      metaNotes.value = meta.notes ?? "";
+
+      const ce = selectedCube.userData.ce;
+      ceSystemEl.value = ce.system ?? "rc_frame";
+      ceSoilEl.value = ce.soil ?? "medium";
+      ceComplexityEl.value = ce.complexity ?? "mid";
+
+      warnBox.style.display = "none";
+      okBox.style.display = "none";
+      warnBox.innerHTML = "";
+      okBox.innerHTML = "";
+
+      const problems = [];
+      if (hM > MAX_HEIGHT_M) problems.push(`Высота ${hM.toFixed(1)} м > ${MAX_HEIGHT_M} м`);
+      if (footprintM2 > MAX_FOOTPRINT_M2) problems.push(`Пятно ${footprintM2.toFixed(0)} м² > ${MAX_FOOTPRINT_M2} м²`);
+      if (Math.abs(x) > ZONE_LIMIT_UNITS || Math.abs(z) > ZONE_LIMIT_UNITS) problems.push(`Выход за зону ±${ZONE_LIMIT_UNITS} м`);
+
+      const ceSystem = ceSystemEl.value || "rc_frame";
+      const ceSoil = ceSoilEl.value || "medium";
+      const ceComplexity = ceComplexityEl.value || "mid";
+
+      const use = meta.use || "residential";
+      const gfaM2 = footprintM2 * floorsAuto;
+
+      const costBase = (COST_PER_M2[ceSystem] || 800) * gfaM2;
+      const cost = costBase * (COMPLEXITY_MULT[ceComplexity] || 1.0);
+
+      const timeMonths = (0.0025 * gfaM2) * (0.7 + floorsAuto * 0.06) * (COMPLEXITY_MULT[ceComplexity] || 1.0);
+      const timeText = (timeMonths < 1) ? `${Math.max(2, Math.round(timeMonths * 4))} нед` : `${Math.round(timeMonths)} мес`;
+
+      const co2Kg = (CO2_PER_M2[ceSystem] || 300) * gfaM2;
+      const massTons = (DEADLOAD_KN_PER_M2[ceSystem] || 6) * gfaM2 * 0.102;
+      const totalKN = (DEADLOAD_KN_PER_M2[ceSystem] || 6) * gfaM2;
+      const bearingDemand = totalKN / footprintM2;
+      const soilCap = SOIL_BEARING_KPA[ceSoil] || 150;
+
+      const peopleFactor = USE_FACTORS[use] || USE_FACTORS.other;
+      const peakPeople = Math.round(gfaM2 * peopleFactor.people_per_m2);
+      const parking = Math.round((gfaM2 / 1000) * peopleFactor.parking_per_1000m2);
+
+      const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      setText("ceGfa", `${gfaM2.toFixed(0)} м²`);
+      setText("ceCost", `$${(cost/1e6).toFixed(2)} млн`);
+      setText("ceTime", timeText);
+      setText("ceCo2", `${(co2Kg/1000).toFixed(0)} т`);
+      setText("ceMass", `${massTons.toFixed(0)} т`);
+      setText("ceBearing", `${bearingDemand.toFixed(0)} / ${soilCap} кПа`);
+      setText("ceParking", `${parking} мест`);
+      setText("cePeopleFlow", `${peakPeople} чел`);
+
+      if (bearingDemand > soilCap){
+        problems.push(`Нагрузка на грунт ${bearingDemand.toFixed(0)} кПа > ${soilCap} кПа`);
+      }
+
+      if (problems.length){
+        warnBox.innerHTML = "⚠ " + problems.join(" • ");
+        warnBox.style.display = "block";
+      } else {
+        okBox.innerHTML = "✓ Все параметры в норме";
+        okBox.style.display = "block";
+      }
+    }
+
+    function resizeSelectedCube(){
+      if (!selectedCube) return;
+
+      const w = parseFloat(document.getElementById('widthSlider').value);
+      const h = parseFloat(document.getElementById('heightSlider').value);
+      const d = parseFloat(document.getElementById('depthSlider').value);
+
+      selectedCube.scale.set(w, h, d);
+      selectedCube.position.y = h / 2 + 0.05;
+
+      const plane = selectedCube.userData.plane;
+      if (plane) updatePlaneSize(selectedCube, plane);
+
+      const use = (selectedCube.userData.meta?.use) || "residential";
+      applyUsePreset(selectedCube, use);
+
+      document.getElementById('widthVal').textContent = w.toFixed(1) + ' м';
+      document.getElementById('heightVal').textContent = h.toFixed(1) + ' м';
+      document.getElementById('depthVal').textContent = d.toFixed(1) + ' м';
+
+      updateSelectionHighlight();
+    }
+
+    function moveSelected(dx, dy, dz){
+      if (!selectedCube) return;
+
+      selectedCube.position.x += dx;
+      selectedCube.position.y += dy;
+      selectedCube.position.z += dz;
+
+      if (selectedCube.position.y < selectedCube.scale.y / 2 + 0.05){
+        selectedCube.position.y = selectedCube.scale.y / 2 + 0.05;
+      }
+
+      const plane = selectedCube.userData.plane;
+      if (plane) updatePlanePosition(selectedCube, plane);
+
+      updateSelectionHighlight();
+    }
+
+    // Delete selected
+    function deleteSelected(){
+      if (!selectedCube) { showStatus("❌ Нечего удалять"); return; }
+
+      const plane = selectedCube.userData.plane;
+
+      scene.remove(selectedCube);
+      if (plane) scene.remove(plane);
+
+      try{
+        selectedCube.traverse(obj=>{
+          if (obj.isMesh){
+            obj.geometry?.dispose?.();
+            if (obj.material){
+              if (Array.isArray(obj.material)) obj.material.forEach(m=>m.dispose?.());
+              else obj.material.dispose?.();
+            }
+          }
+        });
+      }catch{}
+
+      if (plane){
+        try{
+          plane.traverse(obj=>{
+            if (obj.isMesh){
+              obj.geometry?.dispose?.();
+              if (obj.material){
+                if (Array.isArray(obj.material)) obj.material.forEach(m=>m.dispose?.());
+                else obj.material.dispose?.();
+              }
+            }
+          });
+        }catch{}
+      }
+
+      const ci = cubes.indexOf(selectedCube);
+      if (ci !== -1) cubes.splice(ci, 1);
+
+      if (plane){
+        const pi = planes.indexOf(plane);
+        if (pi !== -1) planes.splice(pi, 1);
+      }
+
+      selectedCube = cubes[0] || null;
+      updateSelectionHighlight();
+      updateSliderValuesFromSelected();
+      showStatus("🗑 Удалено");
+    }
+
+    // Raycast select
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    function onClick(event){
+      const el = document.elementFromPoint(event.clientX, event.clientY);
+      if (el && (el.closest('#info') || el.closest('#inspector'))) return;
+
+      mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+      mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const allObjects = [...cubes, ...planes];
+      const intersects = raycaster.intersectObjects(allObjects, true);
+
+      if (intersects.length > 0){
+        const hit = intersects[0].object;
+
+        let obj = hit;
+        while (obj && !cubes.includes(obj) && obj.parent) obj = obj.parent;
+
+        if (obj && cubes.includes(obj)) selectedCube = obj;
+        else if (hit.userData && hit.userData.cube) selectedCube = hit.userData.cube;
+
+        updateSelectionHighlight();
+        updateSliderValuesFromSelected();
+      }
+    }
+
+    // Export/Import
+    function exportToJSON(){
+      const cubesData = cubes.map(cube => ({
+        buildingId: cube.userData.buildingId || null,
+        meta: cube.userData.meta || null,
+        ce: cube.userData.ce || null,
+        visual: cube.userData.visual || null,
+        scale: { x: cube.scale.x, y: cube.scale.y, z: cube.scale.z },
+        position: { x: cube.position.x, y: cube.position.y, z: cube.position.z },
+        color: cube.material.color.getHex()
+      }));
+      return JSON.stringify(cubesData, null, 2);
+    }
+
+    function importFromJSON(jsonStr){
+      try{
+        const cubesData = JSON.parse(jsonStr);
+
+        cubes.forEach(c => scene.remove(c));
+        planes.forEach(p => scene.remove(p));
+        cubes.length = 0;
+        planes.length = 0;
+
+        cubesData.forEach(data=>{
+          const color = new THREE.Color(data.color);
+          const position = new THREE.Vector3(data.position.x, data.position.y, data.position.z);
+
+          const { cube, plane } = createCubeWithPlane(data.scale.x, color, position);
+
+          cube.scale.set(data.scale.x, data.scale.y, data.scale.z);
+          cube.position.set(data.position.x, data.position.y, data.position.z);
+          cube.position.y = data.scale.y / 2 + 0.05;
+
+          cube.userData.buildingId = data.buildingId || makeBuildingId();
+          cube.userData.meta = data.meta || defaultMeta();
+          cube.userData.ce = data.ce || defaultCE();
+
+          updatePlanePosition(cube, plane);
+          updatePlaneSize(cube, plane);
+
+          cube.userData.plane = plane;
+          plane.userData.cube = cube;
+
+          applyUsePreset(cube, cube.userData.meta.use);
+
+          scene.add(cube);
+          scene.add(plane);
+          cubes.push(cube);
+          planes.push(plane);
+        });
+
+        selectedCube = cubes[0] || null;
+        updateSelectionHighlight();
+        updateSliderValuesFromSelected();
+        showStatus('✓ Импорт успешен');
+      } catch(e){
+        showStatus('❌ Ошибка импорта');
+      }
+    }
+
+    // ======= НОВАЯ ФУНКЦИЯ: ОТПРАВКА ВЫБРАННОГО ОБЪЕКТА НА КАРТУ =======
+    function sendSelectedToMap() {
+      if (!selectedCube) {
+        showStatus("❌ Не выбран объект для отправки");
+        return;
+      }
+      if (!window.opener) {
+        showStatus("❌ Редактор открыт не из основного окна");
+        return;
+      }
+
+      // Собираем данные объекта (размеры в метрах, цвет, тип)
+      const wU = selectedCube.scale.x;
+      const hU = selectedCube.scale.y;
+      const dU = selectedCube.scale.z;
+
+      const obj = {
+        type: selectedCube.userData.meta?.use || 'residential',
+        height: hU * UNIT_TO_M,        // метры
+        width: wU * UNIT_TO_M,         // метры
+        depth: dU * UNIT_TO_M,         // метры
+        color: '#' + selectedCube.material.color.getHexString()
+      };
+
+      // Отправляем родительскому окну
+      window.opener.postMessage({ type: 'OBJECT_CREATED', object: obj }, '*');
+      
+      // Показываем сообщение и закрываем окно через секунду
+      showStatus("✅ Объект отправлен, окно закроется...");
+      setTimeout(() => window.close(), 1000);
+    }
+
+    // UI handlers
+    renderer.domElement.addEventListener('click', onClick);
+
+    document.getElementById('addCubeBtn').addEventListener('click', () => {
+      const { cube, plane } = createCubeWithPlane(1.0);
+      scene.add(cube);
+      scene.add(plane);
+
+      cubes.push(cube);
+      planes.push(plane);
+
+      cube.userData.plane = plane;
+      plane.userData.cube = cube;
+
+      selectedCube = cube;
+      updateSelectionHighlight();
+      updateSliderValuesFromSelected();
+      showStatus("✓ Здание добавлено");
+    });
+
+    document.getElementById('deleteBtn').addEventListener('click', deleteSelected);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === "Delete" || e.key === "Backspace") deleteSelected();
+    });
+
+    // Новая кнопка
+    document.getElementById('sendToMapBtn').addEventListener('click', sendSelectedToMap);
+
+    document.getElementById('widthSlider').addEventListener('input', resizeSelectedCube);
+    document.getElementById('heightSlider').addEventListener('input', resizeSelectedCube);
+    document.getElementById('depthSlider').addEventListener('input', resizeSelectedCube);
+
+    document.getElementById('moveLeft').addEventListener('click', () => moveSelected(-0.5, 0, 0));
+    document.getElementById('moveRight').addEventListener('click', () => moveSelected(0.5, 0, 0));
+    document.getElementById('moveDown').addEventListener('click', () => moveSelected(0, -0.5, 0));
+    document.getElementById('moveUp').addEventListener('click', () => moveSelected(0, 0.5, 0));
+    document.getElementById('moveBack').addEventListener('click', () => moveSelected(0, 0, -0.5));
+    document.getElementById('moveForward').addEventListener('click', () => moveSelected(0, 0, 0.5));
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const json = exportToJSON();
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'buildings.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showStatus('📁 Файл сохранен');
+    });
+
+    document.getElementById('copyToClipboardBtn').addEventListener('click', () => {
+      const json = exportToJSON();
+      navigator.clipboard.writeText(json).then(() => showStatus('📋 JSON скопирован'));
+    });
+
+    document.getElementById('importBtn').addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => importFromJSON(event.target.result);
+        reader.readAsText(file);
+      };
+      input.click();
+    });
+
+    window.addEventListener('paste', (e) => {
+      const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+      if (pastedText && pastedText.includes('"scale"')) {
+        if (confirm('Вставить JSON?')) importFromJSON(pastedText);
+      }
+    });
+
+    applyMetaBtn.addEventListener('click', () => {
+      if (!selectedCube) return;
+
+      selectedCube.userData.meta = {
+        name: metaName.value.trim() || "New Building",
+        use: metaUse.value,
+        material: metaMaterial.value.trim(),
+        notes: metaNotes.value.trim()
+      };
+
+      selectedCube.userData.ce = {
+        system: ceSystemEl.value,
+        soil: ceSoilEl.value,
+        complexity: ceComplexityEl.value
+      };
+
+      applyUsePreset(selectedCube, selectedCube.userData.meta.use);
+
+      showStatus("✓ Сохранено");
+      syncInspectorFromSelected();
+    });
+
+    metaUse.addEventListener('change', () => {
+      if (!selectedCube) return;
+      selectedCube.userData.meta = selectedCube.userData.meta || defaultMeta();
+      selectedCube.userData.meta.use = metaUse.value;
+
+      applyUsePreset(selectedCube, metaUse.value);
+      showStatus("🎨 Вид обновлён");
+      syncInspectorFromSelected();
+    });
+
+    [ceSystemEl, ceSoilEl, ceComplexityEl].forEach(el => {
+      el.addEventListener('change', () => {
+        if (selectedCube) {
+          selectedCube.userData.ce = {
+            system: ceSystemEl.value,
+            soil: ceSoilEl.value,
+            complexity: ceComplexityEl.value
+          };
+        }
+        syncInspectorFromSelected();
+      });
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Add first building
+    const first = createCubeWithPlane(1.2);
+    scene.add(first.cube);
+    scene.add(first.plane);
+    cubes.push(first.cube);
+    planes.push(first.plane);
+    selectedCube = first.cube;
+
+    first.cube.userData.plane = first.plane;
+    first.plane.userData.cube = first.cube;
+
+    updateSelectionHighlight();
+    updateSliderValuesFromSelected();
+
+    // Animate
+    function animate(){
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

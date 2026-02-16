@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D редактор — Гидроэлектростанция + Энергетическая аналитика</title>
+  <style>
+    /* Все стили без изменений (как в исходном файле, только убрали .btn.primary, если он был) */
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+
+    /* LEFT PANEL */
+    #info{
+      position:absolute;
+      top:20px; left:20px;
+      background: rgba(20,20,20,0.95);
+      backdrop-filter: blur(5px);
+      color:#fff;
+      padding:20px;
+      border-radius:12px;
+      border:1px solid #444;
+      width:320px;
+      z-index:100;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+      pointer-events: all;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      transition: all 0.3s ease;
+    }
+
+    #info.collapsed {
+      width: 70px;
+      padding: 20px 10px;
+    }
+
+    #info.collapsed h2,
+    #info.collapsed .btn:not(.collapse-btn),
+    #info.collapsed .slider-container,
+    #info.collapsed .coord-control,
+    #info.collapsed .export-import,
+    #info.collapsed #selected-info,
+    #info.collapsed h3,
+    #info.collapsed .hint,
+    #info.collapsed .status,
+    #info.collapsed .value-badge {
+      display: none;
+    }
+
+    #info.collapsed .btn {
+      display: none;
+    }
+
+    #info.collapsed #addDamBtn,
+    #info.collapsed #deleteBtn {
+      display: block;
+      width: 50px;
+      height: 50px;
+      padding: 0;
+      border-radius: 10px;
+      font-size: 24px;
+      line-height: 50px;
+      text-align: center;
+      margin: 5px auto;
+    }
+
+    #info.collapsed #addDamBtn span,
+    #info.collapsed #deleteBtn span {
+      display: none;
+    }
+
+    #info.collapsed #addDamBtn::before {
+      content: "🌊";
+    }
+    #info.collapsed #deleteBtn::before {
+      content: "🗑";
+    }
+
+    /* RIGHT PANEL */
+    #inspector{
+      position:absolute;
+      top:20px; right:20px;
+      background: rgba(20,20,20,0.95);
+      backdrop-filter: blur(6px);
+      color:#fff;
+      padding:18px;
+      border-radius:12px;
+      border:1px solid #444;
+      width:380px;
+      z-index:100;
+      box-shadow: 0 6px 26px rgba(0,0,0,0.8);
+      pointer-events: all;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      transition: all 0.3s ease;
+    }
+
+    #inspector.collapsed {
+      width: 70px;
+      padding: 18px 10px;
+    }
+
+    #inspector.collapsed h2,
+    #inspector.collapsed .ins-section,
+    #inspector.collapsed .field,
+    #inspector.collapsed button:not(.collapse-btn),
+    #inspector.collapsed .kv,
+    #inspector.collapsed .chip,
+    #inspector.collapsed .warn,
+    #inspector.collapsed .ok,
+    #inspector.collapsed .hint {
+      display: none;
+    }
+
+    .collapse-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 40px;
+      height: 40px;
+      background: #333;
+      border: 1px solid #666;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+      z-index: 200;
+    }
+    .collapse-btn:hover {
+      background: #555;
+      border-color: #888;
+    }
+    #inspector .collapse-btn { right: 10px; left: auto; }
+    #info .collapse-btn { right: 10px; left: auto; }
+    #info.collapsed .collapse-btn { display: flex; }
+    #inspector.collapsed .collapse-btn { display: flex; }
+
+    #info h2{
+      margin:0 0 15px 0;
+      color:#fff;
+      font-size:1.4rem;
+      border-bottom: 1px solid #444;
+      padding-bottom: 8px;
+      font-weight: 300;
+      letter-spacing: 1px;
+    }
+    #inspector h2{
+      margin:0 0 12px 0;
+      color:#fff;
+      font-size:1.15rem;
+      border-bottom: 1px solid #444;
+      padding-bottom: 8px;
+      font-weight: 300;
+      letter-spacing: 1px;
+    }
+
+    /* nice scrollbars */
+    #info::-webkit-scrollbar, #inspector::-webkit-scrollbar { width: 10px; }
+    #info::-webkit-scrollbar-thumb, #inspector::-webkit-scrollbar-thumb{
+      background: rgba(255,255,255,0.2);
+      border-radius: 999px;
+      border: 2px solid rgba(0,0,0,0.5);
+    }
+    #info::-webkit-scrollbar-track, #inspector::-webkit-scrollbar-track{
+      background: rgba(0,0,0,0.3);
+      border-radius: 999px;
+    }
+
+    .btn{
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      padding:10px 15px;
+      font-size:1rem;
+      font-weight:300;
+      border-radius:6px;
+      cursor:pointer;
+      margin:5px 0;
+      transition: 0.2s;
+      width:100%;
+      letter-spacing: 0.5px;
+    }
+    .btn:hover{ background: #444; border-color: #777; }
+    .btn.secondary{
+      background: #222;
+      color:#fff;
+      border:1px solid #444;
+    }
+    .btn.secondary:hover{ background: #2a2a2a; }
+    .btn.danger{
+      background: #442222;
+      color:#fff;
+      border:1px solid #663333;
+    }
+    .btn.danger:hover{ background: #552222; }
+
+    .slider-container{ margin-bottom: 15px; }
+    .slider-container label{
+      display:flex; justify-content:space-between;
+      color:#ccc; font-size:0.9rem; margin-bottom:5px;
+    }
+    .slider-container input{ width:100%; accent-color: #00a8ff; }
+
+    .coord-control{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:5px;
+      margin:15px 0;
+    }
+    .coord-btn{
+      background:#222;
+      border:1px solid #444;
+      color:#fff;
+      padding:8px;
+      border-radius:4px;
+      cursor:pointer;
+      font-weight:300;
+    }
+    .coord-btn:hover{ background:#2a2a2a; border-color:#666; }
+
+    #selected-info{
+      background:#222;
+      padding:12px;
+      border-radius:8px;
+      text-align:center;
+      color:#ccc;
+      font-size:0.9rem;
+      margin:15px 0;
+      border:1px dashed #444;
+    }
+
+    .value-badge{
+      background:#222;
+      padding:3px 8px;
+      border-radius:20px;
+      font-family: monospace;
+      color:#fff;
+      border: 1px solid #444;
+    }
+    .status{
+      color:#0f0;
+      font-size:0.8rem;
+      text-align:center;
+      margin-top:10px;
+      opacity:0.8;
+    }
+
+    /* Inspector blocks */
+    .ins-section{
+      margin-top:12px;
+      padding:12px;
+      border-radius:10px;
+      border: 1px solid #333;
+      background: rgba(0,0,0,0.2);
+    }
+    .ins-title{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      font-weight:400;
+      font-size:0.95rem;
+      margin-bottom:8px;
+      color: #fff;
+    }
+    .chip{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid #444;
+      background: #222;
+      color: #fff;
+    }
+    .kv{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px 10px;
+      font-size:0.9rem;
+      color: #ddd;
+    }
+    .kv .k{ color: #aaa; }
+    .kv .v{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      color: #fff;
+    }
+
+    .field{ display:grid; gap:6px; margin-top:10px; }
+    .field label{ color: #aaa; font-size:0.85rem; }
+    .field input,.field select,.field textarea{
+      width:100%;
+      padding:10px 10px;
+      border-radius:8px;
+      border:1px solid #333;
+      background: #1a1a1a;
+      color: #fff;
+      outline:none;
+    }
+    .field input:focus,.field select:focus,.field textarea:focus{
+      border-color: #00a8ff;
+    }
+    .field textarea{ min-height: 70px; resize: vertical; }
+
+    .warn{
+      margin-top:10px;
+      padding:10px;
+      border-radius:10px;
+      border:1px solid #663333;
+      background: #332222;
+      color: #ffaaaa;
+      font-size:0.88rem;
+      line-height:1.35;
+      display:none;
+    }
+    .ok{
+      margin-top:10px;
+      padding:10px;
+      border-radius:10px;
+      border:1px solid #336633;
+      background: #223322;
+      color: #aaffaa;
+      font-size:0.88rem;
+      line-height:1.35;
+      display:none;
+    }
+
+    .hint{
+      margin-top:10px;
+      padding:10px;
+      border-radius:10px;
+      border:1px solid #333;
+      background: #1a1a1a;
+      color: #aaa;
+      font-size:0.85rem;
+      line-height:1.35;
+    }
+
+    /* Гидро-специфичные стили */
+    .energy-card {
+      background: rgba(0, 168, 255, 0.1);
+      border: 1px solid #00a8ff;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    .energy-title {
+      color: #00a8ff;
+      font-size: 0.85rem;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+    .energy-value {
+      font-size: 2rem;
+      font-weight: 300;
+      color: #fff;
+    }
+    .energy-unit {
+      color: #666;
+      font-size: 0.8rem;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .stat-item {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+    .stat-label {
+      color: #aaa;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+    }
+    .stat-number {
+      color: #00a8ff;
+      font-size: 1.4rem;
+      font-weight: 300;
+    }
+    .stat-desc {
+      color: #666;
+      font-size: 0.7rem;
+    }
+    .flow-bar {
+      background: #1a1a1a;
+      height: 8px;
+      border-radius: 4px;
+      margin: 10px 0;
+      overflow: hidden;
+    }
+    .flow-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00a8ff, #4caf50);
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+    .comparison-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #333;
+      color: #ddd;
+      font-size: 0.9rem;
+    }
+    .badge {
+      background: #222;
+      border: 1px solid #00a8ff;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      color: #00a8ff;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      background: #333;
+      border-radius: 2px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 16px;
+      width: 16px;
+      border-radius: 8px;
+      background: #00a8ff;
+      margin-top: -6px;
+      cursor: pointer;
+    }
+    input[type=range]::-moz-range-track {
+      width: 100%;
+      height: 4px;
+      background: #333;
+      border-radius: 2px;
+    }
+    input[type=range]::-moz-range-thumb {
+      height: 16px;
+      width: 16px;
+      border-radius: 8px;
+      background: #00a8ff;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- LEFT PANEL -->
+  <div id="info">
+    <button class="collapse-btn" id="collapseLeftBtn" onclick="toggleLeftPanel()">◀</button>
+    <h2>🌊 ГИДРО-КОНСТРУКТОР</h2>
+    <button class="btn" id="addDamBtn"><span>+ Добавить плотину</span></button>
+    <button class="btn danger" id="deleteBtn"><span>🗑 Удалить выбранное</span></button>
+    <!-- Кнопка отправки УДАЛЕНА -->
+    <div class="hint">
+      Выбор: кликни по плотине<br>
+      Удаление: Delete/Backspace
+    </div>
+    <h3 style="margin: 15px 0 10px; color: #00a8ff;">ПАРАМЕТРЫ ПОТОКА</h3>
+    <div class="slider-container">
+      <label>Скорость потока <span id="flowSpeedValue" class="value-badge">3.5 км/ч</span></label>
+      <input type="range" id="flowSpeed" min="0.5" max="25" step="0.1" value="3.5">
+    </div>
+    <div style="background: #1a1a1a; border-radius: 8px; padding: 10px; margin-bottom: 15px; border: 1px solid #333;">
+      <div style="color: #00a8ff; font-size: 0.9rem; margin-bottom: 8px;">📊 Типовые скорости потоков:</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.8rem;">
+        <div style="color: #aaa;">Медленный ручей:</div><div style="color: #fff;">0.5-2 км/ч</div>
+        <div style="color: #aaa;">Равнинная река:</div><div style="color: #fff;">3-8 км/ч</div>
+        <div style="color: #aaa;">Горная река:</div><div style="color: #fff;">10-18 км/ч</div>
+        <div style="color: #aaa;">Паводок:</div><div style="color: #fff;">20-25 км/ч</div>
+      </div>
+    </div>
+    <div class="slider-container">
+      <label>Расход воды <span id="flowRateValue" class="value-badge">12.5 м³/с</span></label>
+      <input type="range" id="flowRate" min="1" max="200" step="1" value="50">
+      <div style="color: #aaa; font-size: 0.7rem; margin-top: 3px;">*Зависит от сечения русла</div>
+    </div>
+    <div class="slider-container">
+      <label>Высота падения <span id="headValue" class="value-badge">8 м</span></label>
+      <input type="range" id="head" min="1" max="100" step="1" value="8">
+      <div style="color: #aaa; font-size: 0.7rem;">Напор = перепад высот</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+      <div>
+        <label style="color: #aaa; font-size: 0.8rem;">Ширина русла</label>
+        <input type="number" id="riverWidth" value="5" min="1" max="50" step="0.5" style="width:100%; padding:8px; background:#222; border:1px solid #444; color:#fff; border-radius:4px;">
+      </div>
+      <div>
+        <label style="color: #aaa; font-size: 0.8rem;">Глубина русла</label>
+        <input type="number" id="riverDepth" value="2" min="0.5" max="20" step="0.5" style="width:100%; padding:8px; background:#222; border:1px solid #444; color:#fff; border-radius:4px;">
+      </div>
+    </div>
+    <h3 style="margin: 15px 0 10px; color: #00a8ff;">ПОЗИЦИЯ (локально)</h3>
+    <div class="coord-control">
+      <button class="coord-btn" id="moveLeft">X-</button>
+      <button class="coord-btn" id="moveRight">X+</button>
+      <button class="coord-btn" id="moveDown">Y-</button>
+      <button class="coord-btn" id="moveUp">Y+</button>
+      <button class="coord-btn" id="moveBack">Z-</button>
+      <button class="coord-btn" id="moveForward">Z+</button>
+    </div>
+    <div id="selected-info">👆 Кликни по плотине для выбора</div>
+    <div id="statusMsg" class="status"></div>
+  </div>
+
+  <!-- RIGHT PANEL - ГИДРО-АНАЛИТИКА -->
+  <div id="inspector">
+    <button class="collapse-btn" id="collapseRightBtn" onclick="toggleRightPanel()">▶</button>
+    <h2>💧 HYDRO INSPECTOR</h2>
+    <div class="ins-section">
+      <div class="ins-title">
+        <span>Текущий объект</span>
+        <span class="chip" id="damId">H001</span>
+      </div>
+      <div class="kv">
+        <div class="k">Позиция</div><div class="v" id="damPos">—</div>
+        <div class="k">Высота плотины</div><div class="v" id="damHeight">15 м</div>
+        <div class="k">Длина гребня</div><div class="v" id="damLength">30 м</div>
+        <div class="k">Кол-во турбин</div><div class="v" id="turbineCount">2</div>
+      </div>
+    </div>
+    <div class="ins-section">
+      <div class="ins-title">
+        <span>⚡ Выработка энергии</span>
+      </div>
+      <div class="energy-card">
+        <div class="energy-title">ТЕКУЩАЯ МОЩНОСТЬ</div>
+        <div class="energy-value" id="currentPower">245</div>
+        <div class="energy-unit">кВт</div>
+        <div class="flow-bar">
+          <div class="flow-fill" id="powerBar" style="width: 65%"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+          <span class="badge" id="flowSpeedDisplay">3.5 км/ч</span>
+          <span class="badge" id="headDisplay">8 м</span>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-label">В ЧАС</div>
+          <div class="stat-number" id="energyHour">245</div>
+          <div class="stat-desc">кВт·ч</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">В ДЕНЬ</div>
+          <div class="stat-number" id="energyDay">5,880</div>
+          <div class="stat-desc">кВт·ч</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">В МЕСЯЦ</div>
+          <div class="stat-number" id="energyMonth">176k</div>
+          <div class="stat-desc">кВт·ч</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">В ГОД</div>
+          <div class="stat-number" id="energyYear">2.1M</div>
+          <div class="stat-desc">кВт·ч</div>
+        </div>
+      </div>
+    </div>
+    <div class="ins-section">
+      <div class="ins-title">
+        <span>🌊 Гидравлика</span>
+      </div>
+      <div class="kv">
+        <div class="k">Скорость потока</div><div class="v" id="hydroSpeed">3.5 км/ч (0.97 м/с)</div>
+        <div class="k">Расход воды (Q)</div><div class="v" id="flowRate">12.5 м³/с</div>
+        <div class="k">Напор (H)</div><div class="v" id="head">8 м</div>
+        <div class="k">Сечение русла</div><div class="v" id="crossSection">10.0 м²</div>
+        <div class="k">Число Фруда</div><div class="v" id="froude">0.15</div>
+      </div>
+    </div>
+    <div class="ins-section">
+      <div class="ins-title">
+        <span>🌍 Экологический эффект</span>
+      </div>
+      <div class="comparison-item">
+        <span>Сэкономлено угля:</span>
+        <span id="coalSaved">856 т/год</span>
+      </div>
+      <div class="comparison-item">
+        <span>CO₂ предотвращено:</span>
+        <span id="co2Saved">2,145 т/год</span>
+      </div>
+      <div class="comparison-item">
+        <span>Домов обеспечено:</span>
+        <span id="homesPowered">65</span>
+      </div>
+      <div class="comparison-item">
+        <span>Эквивалент деревьев:</span>
+        <span id="treesPlanted">3,218</span>
+      </div>
+    </div>
+    <div class="ins-section">
+      <div class="ins-title">
+        <span>⚙️ Параметры турбины</span>
+      </div>
+      <div class="field">
+        <label>Тип турбины</label>
+        <select id="turbineType">
+          <option value="propeller">Пропеллерная (низкий напор)</option>
+          <option value="francis" selected>Радиально-осевая (средний напор)</option>
+          <option value="pelton">Ковшовая (высокий напор)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>КПД турбины</label>
+        <input type="range" id="turbineEfficiency" min="0.7" max="0.95" step="0.01" value="0.85">
+        <div style="display: flex; justify-content: space-between;">
+          <span id="efficiencyValue">85%</span>
+          <span class="badge">оптимально 85-92% [citation:10]</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Кол-во турбин</label>
+        <select id="turbineCountSelect">
+          <option value="1">1</option>
+          <option value="2" selected>2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+      </div>
+      <div class="kv" style="margin-top: 10px;">
+        <div class="k">Коэф. мощности</div><div class="v" id="powerFactor">0.42</div>
+        <div class="k">Доход в месяц</div><div class="v" id="monthlyRevenue">€17.6k</div>
+        <div class="k">Окупаемость</div><div class="v" id="paybackPeriod">7.2 г</div>
+        <div class="k">Наработка</div><div class="v" id="operatingHours">12.4k ч</div>
+      </div>
+    </div>
+    <div id="warnBox" class="warn"></div>
+    <div id="okBox" class="ok">✓ Все параметры в норме</div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // ======= ФУНКЦИИ ДЛЯ СВОРАЧИВАНИЯ =======
+    window.toggleLeftPanel = function() {
+      const panel = document.getElementById('info');
+      const btn = document.getElementById('collapseLeftBtn');
+      panel.classList.toggle('collapsed');
+      btn.textContent = panel.classList.contains('collapsed') ? '▶' : '◀';
+    };
+    window.toggleRightPanel = function() {
+      const panel = document.getElementById('inspector');
+      const btn = document.getElementById('collapseRightBtn');
+      panel.classList.toggle('collapsed');
+      btn.textContent = panel.classList.contains('collapsed') ? '◀' : '▶';
+    };
+
+    // ======= Scene =======
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111122);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(20, 10, 25);
+    camera.lookAt(0, 5, 0);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2.2;
+    controls.target.set(0, 5, 0);
+
+    // Lights
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(5, 15, 10);
+    dirLight.castShadow = true;
+    dirLight.receiveShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+    scene.add(new THREE.AmbientLight(0x404060));
+    const fillLight = new THREE.PointLight(0x4488ff, 0.3);
+    fillLight.position.set(-5, 8, 10);
+    scene.add(fillLight);
+
+    // Вода (прозрачная плоскость)
+    const waterGeo = new THREE.PlaneGeometry(60, 40);
+    const waterMat = new THREE.MeshStandardMaterial({ color: 0x2a6f8f, transparent: true, opacity: 0.7, emissive: 0x113355 });
+    const water = new THREE.Mesh(waterGeo, waterMat);
+    water.rotation.x = -Math.PI / 2;
+    water.position.y = 0.5;
+    water.receiveShadow = true;
+    scene.add(water);
+
+    // Берега (зеленые холмы)
+    const bankMat = new THREE.MeshStandardMaterial({ color: 0x2a5a2a });
+    for (let i = -2; i <= 2; i+=2) {
+      const bankGeo = new THREE.BoxGeometry(10, 2, 40);
+      const bank = new THREE.Mesh(bankGeo, bankMat);
+      bank.position.set(i * 8, 1, 0);
+      bank.receiveShadow = true;
+      bank.castShadow = true;
+      scene.add(bank);
+    }
+
+    // Grid
+    const gridHelper = new THREE.GridHelper(60, 20, 0x3388ff, 0x224466);
+    gridHelper.position.y = 0;
+    scene.add(gridHelper);
+
+    // State
+    const dams = [];
+    let selectedDam = null;
+
+    // ======= СОЗДАНИЕ ПЛОТИНЫ =======
+    function createDam(position = null, heightScale = 1.0) {
+      const group = new THREE.Group();
+      const damHeight = 15 * heightScale;
+      const damWidth = 30 * heightScale;
+      const damDepth = 8 * heightScale;
+
+      const bodyGeo = new THREE.BoxGeometry(damWidth, damHeight, damDepth);
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.6 });
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.position.y = damHeight/2;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      group.add(body);
+
+      for (let i = -1; i <= 1; i+=2) {
+        const archGeo = new THREE.CylinderGeometry(2, 2, damWidth * 0.3, 16, 1, true);
+        const archMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
+        const arch = new THREE.Mesh(archGeo, archMat);
+        arch.rotation.z = Math.PI/2;
+        arch.position.set(i * 8, damHeight * 0.3, damDepth/2 + 1);
+        arch.scale.set(1, 0.5, 1);
+        arch.castShadow = true;
+        arch.receiveShadow = true;
+        group.add(arch);
+      }
+
+      for (let i = -1; i <= 1; i+=2) {
+        const turbineGeo = new THREE.CylinderGeometry(1.5, 1.5, 3, 8);
+        const turbineMat = new THREE.MeshStandardMaterial({ color: 0x3366cc, emissive: 0x112233 });
+        const turbine = new THREE.Mesh(turbineGeo, turbineMat);
+        turbine.rotation.x = Math.PI/2;
+        turbine.position.set(i * 7, damHeight * 0.2, damDepth/2 + 2);
+        turbine.castShadow = true;
+        turbine.receiveShadow = true;
+        group.add(turbine);
+
+        const bladesGroup = new THREE.Group();
+        bladesGroup.position.copy(turbine.position);
+        for (let j = 0; j < 4; j++) {
+          const bladeGeo = new THREE.BoxGeometry(0.3, 2, 0.5);
+          const bladeMat = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+          const blade = new THREE.Mesh(bladeGeo, bladeMat);
+          blade.rotation.y = (j * Math.PI/2);
+          blade.position.x = Math.cos(j * Math.PI/2) * 1.2;
+          blade.position.z = Math.sin(j * Math.PI/2) * 1.2;
+          blade.castShadow = true;
+          blade.receiveShadow = true;
+          bladesGroup.add(blade);
+        }
+        group.add(bladesGroup);
+        group.userData.blades = bladesGroup;
+      }
+
+      const crestGeo = new THREE.BoxGeometry(damWidth + 2, 1, damDepth + 2);
+      const crestMat = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+      const crest = new THREE.Mesh(crestGeo, crestMat);
+      crest.position.y = damHeight;
+      crest.castShadow = true;
+      crest.receiveShadow = true;
+      group.add(crest);
+
+      const lineMat = new THREE.LineBasicMaterial({ color: 0x888888 });
+      for (let i = -1; i <= 1; i+=2) {
+        const points = [
+          new THREE.Vector3(i * 12, damHeight + 2, 0),
+          new THREE.Vector3(i * 15, damHeight + 5, 10),
+          new THREE.Vector3(i * 15, damHeight + 5, 20)
+        ];
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+        const line = new THREE.Line(lineGeo, lineMat);
+        group.add(line);
+      }
+
+      group.userData.height = damHeight;
+      group.userData.width = damWidth;
+      group.userData.turbineCount = 2;
+      if (position) group.position.copy(position);
+      return group;
+    }
+
+    function calculateHydropower() {
+      const flowSpeedKmh = parseFloat(document.getElementById('flowSpeed').value);
+      const flowSpeedMs = flowSpeedKmh / 3.6;
+      const riverWidth = parseFloat(document.getElementById('riverWidth').value);
+      const riverDepth = parseFloat(document.getElementById('riverDepth').value);
+      const head = parseFloat(document.getElementById('head').value);
+      const turbineEfficiency = parseFloat(document.getElementById('turbineEfficiency').value);
+      const turbineCount = parseInt(document.getElementById('turbineCountSelect').value);
+
+      const crossSection = riverWidth * riverDepth;
+      const flowRate = crossSection * flowSpeedMs;
+      let powerKW = 9.81 * flowRate * head * turbineEfficiency * (turbineCount / 2);
+      powerKW = Math.min(5000, Math.round(powerKW));
+
+      const hourEnergy = powerKW;
+      const dayEnergy = hourEnergy * 24;
+      const monthEnergy = dayEnergy * 30;
+      const yearEnergy = monthEnergy * 12;
+
+      const coalSaved = Math.round(yearEnergy * 0.0004);
+      const co2Saved = Math.round(yearEnergy * 0.001);
+      const homesPowered = Math.round(yearEnergy / 33000);
+      const treesPlanted = Math.round(co2Saved * 1.5);
+      const monthlyRevenue = Math.round(monthEnergy * 0.1);
+      const paybackPeriod = (2000000 / (monthlyRevenue * 12)).toFixed(1);
+      const froude = flowSpeedMs / Math.sqrt(9.81 * riverDepth);
+
+      document.getElementById('flowSpeedDisplay').textContent = flowSpeedKmh.toFixed(1) + ' км/ч';
+      document.getElementById('headDisplay').textContent = head + ' м';
+      document.getElementById('flowRate').value = Math.round(flowRate);
+      document.getElementById('flowRateValue').textContent = Math.round(flowRate) + ' м³/с';
+      document.getElementById('currentPower').textContent = powerKW.toLocaleString();
+      document.getElementById('energyHour').textContent = hourEnergy.toLocaleString();
+      document.getElementById('energyDay').textContent = Math.round(dayEnergy).toLocaleString();
+      document.getElementById('energyMonth').textContent = (monthEnergy/1000).toFixed(0) + 'k';
+      document.getElementById('energyYear').textContent = (yearEnergy/1000000).toFixed(1) + 'M';
+      document.getElementById('hydroSpeed').textContent = flowSpeedKmh.toFixed(1) + ' км/ч (' + flowSpeedMs.toFixed(2) + ' м/с)';
+      document.getElementById('flowRate').textContent = Math.round(flowRate) + ' м³/с';
+      document.getElementById('head').textContent = head + ' м';
+      document.getElementById('crossSection').textContent = crossSection.toFixed(1) + ' м²';
+      document.getElementById('froude').textContent = froude.toFixed(2);
+      document.getElementById('coalSaved').textContent = coalSaved.toLocaleString() + ' т/год';
+      document.getElementById('co2Saved').textContent = co2Saved.toLocaleString() + ' т/год';
+      document.getElementById('homesPowered').textContent = homesPowered.toLocaleString();
+      document.getElementById('treesPlanted').textContent = treesPlanted.toLocaleString();
+      const efficiencyPercent = Math.round(turbineEfficiency * 100);
+      document.getElementById('efficiencyValue').textContent = efficiencyPercent + '%';
+      const maxPower = 9.81 * (riverWidth * riverDepth * 7) * head;
+      const powerPercent = Math.min(100, Math.round((powerKW / maxPower) * 100));
+      document.getElementById('powerBar').style.width = powerPercent + '%';
+      document.getElementById('powerFactor').textContent = (0.4 + Math.random() * 0.1).toFixed(2);
+      document.getElementById('monthlyRevenue').textContent = '€' + (monthlyRevenue/1000).toFixed(1) + 'k';
+      document.getElementById('paybackPeriod').textContent = paybackPeriod + ' г';
+      document.getElementById('operatingHours').textContent = (Math.round(12.4 + Math.random())).toFixed(1) + 'k ч';
+      return powerKW;
+    }
+
+    function addDam() {
+      const dam = createDam(null, 1.0);
+      dam.position.x = (Math.random() - 0.5) * 15;
+      dam.position.z = (Math.random() - 0.5) * 10;
+      dam.position.y = 0;
+      dam.userData.id = 'H' + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      scene.add(dam);
+      dams.push(dam);
+      selectedDam = dam;
+      updateSelectionHighlight();
+      calculateHydropower();
+      showStatus("✓ Плотина добавлена");
+    }
+
+    function updateSelectionHighlight() {
+      dams.forEach(d => {
+        d.traverse(node => {
+          if (node.isMesh && node.material) {
+            if (Array.isArray(node.material)) {
+              node.material.forEach(m => { if (m.emissive) m.emissive.setHex(0x000000); });
+            } else if (node.material.emissive) {
+              node.material.emissive.setHex(0x000000);
+            }
+          }
+        });
+      });
+      if (selectedDam) {
+        selectedDam.traverse(node => {
+          if (node.isMesh && node.material) {
+            if (Array.isArray(node.material)) {
+              node.material.forEach(m => { if (m.emissive) m.emissive.setHex(0x333333); });
+            } else if (node.material.emissive) {
+              node.material.emissive.setHex(0x333333);
+            }
+          }
+        });
+        document.getElementById('damId').textContent = selectedDam.userData.id || 'H001';
+        const pos = selectedDam.position;
+        document.getElementById('damPos').textContent = `x=${pos.x.toFixed(1)} y=${pos.y.toFixed(1)} z=${pos.z.toFixed(1)}`;
+        document.getElementById('damHeight').textContent = '15 м';
+        document.getElementById('damLength').textContent = '30 м';
+        document.getElementById('turbineCount').textContent = '2';
+        document.getElementById('selected-info').innerHTML = `✓ Выбрана: плотина ${selectedDam.userData.id}<br>X=${pos.x.toFixed(2)} м Y=${pos.y.toFixed(2)} м Z=${pos.z.toFixed(2)} м`;
+        document.getElementById('okBox').style.display = 'block';
+        document.getElementById('warnBox').style.display = 'none';
+      } else {
+        document.getElementById('selected-info').innerHTML = '👆 Кликни по плотине для выбора';
+      }
+    }
+
+    function moveSelected(dx, dy, dz) {
+      if (!selectedDam) { showStatus("❌ Сначала выберите плотину"); return; }
+      selectedDam.position.x += dx;
+      selectedDam.position.y += dy;
+      selectedDam.position.z += dz;
+      if (selectedDam.position.y < 0) selectedDam.position.y = 0;
+      if (Math.abs(selectedDam.position.x) > 25) selectedDam.position.x = Math.sign(selectedDam.position.x) * 25;
+      if (Math.abs(selectedDam.position.z) > 15) selectedDam.position.z = Math.sign(selectedDam.position.z) * 15;
+      updateSelectionHighlight();
+      showStatus(`📍 Новая позиция: (${selectedDam.position.x.toFixed(1)}, ${selectedDam.position.y.toFixed(1)}, ${selectedDam.position.z.toFixed(1)})`);
+    }
+
+    function deleteSelected() {
+      if (!selectedDam) { showStatus("❌ Нечего удалять"); return; }
+      scene.remove(selectedDam);
+      const index = dams.indexOf(selectedDam);
+      if (index !== -1) dams.splice(index, 1);
+      selectedDam = dams[0] || null;
+      updateSelectionHighlight();
+      calculateHydropower();
+      showStatus("🗑 Плотина удалена");
+    }
+
+    function showStatus(msg) {
+      const statusEl = document.getElementById('statusMsg');
+      statusEl.textContent = msg;
+      setTimeout(() => statusEl.textContent = '', 3000);
+    }
+
+    // Raycast select
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    function onClick(event) {
+      const el = document.elementFromPoint(event.clientX, event.clientY);
+      if (el && (el.closest('#info') || el.closest('#inspector'))) return;
+      mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+      mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(dams, true);
+      if (intersects.length > 0) {
+        let obj = intersects[0].object;
+        while (obj && !dams.includes(obj) && obj.parent) obj = obj.parent;
+        if (obj && dams.includes(obj)) {
+          selectedDam = obj;
+          updateSelectionHighlight();
+          calculateHydropower();
+        }
+      }
+    }
+
+    // UI Handlers
+    renderer.domElement.addEventListener('click', onClick);
+    document.getElementById('addDamBtn').addEventListener('click', addDam);
+    document.getElementById('deleteBtn').addEventListener('click', deleteSelected);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === "Delete" || e.key === "Backspace") deleteSelected();
+    });
+    document.getElementById('moveLeft').addEventListener('click', () => moveSelected(-2, 0, 0));
+    document.getElementById('moveRight').addEventListener('click', () => moveSelected(2, 0, 0));
+    document.getElementById('moveDown').addEventListener('click', () => moveSelected(0, -1, 0));
+    document.getElementById('moveUp').addEventListener('click', () => moveSelected(0, 1, 0));
+    document.getElementById('moveBack').addEventListener('click', () => moveSelected(0, 0, -2));
+    document.getElementById('moveForward').addEventListener('click', () => moveSelected(0, 0, 2));
+
+    document.getElementById('flowSpeed').addEventListener('input', (e) => {
+      document.getElementById('flowSpeedValue').textContent = e.target.value + ' км/ч';
+      calculateHydropower();
+    });
+    document.getElementById('flowRate').addEventListener('input', (e) => {
+      document.getElementById('flowRateValue').textContent = e.target.value + ' м³/с';
+      const width = parseFloat(document.getElementById('riverWidth').value);
+      const depth = parseFloat(document.getElementById('riverDepth').value);
+      const crossSection = width * depth;
+      if (crossSection > 0) {
+        const speedMs = parseFloat(e.target.value) / crossSection;
+        const speedKmh = speedMs * 3.6;
+        if (speedKmh <= 25) {
+          document.getElementById('flowSpeed').value = speedKmh.toFixed(1);
+          document.getElementById('flowSpeedValue').textContent = speedKmh.toFixed(1) + ' км/ч';
+        }
+      }
+      calculateHydropower();
+    });
+    document.getElementById('head').addEventListener('input', (e) => {
+      document.getElementById('headValue').textContent = e.target.value + ' м';
+      calculateHydropower();
+    });
+    document.getElementById('riverWidth').addEventListener('input', calculateHydropower);
+    document.getElementById('riverDepth').addEventListener('input', calculateHydropower);
+    document.getElementById('turbineEfficiency').addEventListener('input', calculateHydropower);
+    document.getElementById('turbineCountSelect').addEventListener('change', calculateHydropower);
+    document.getElementById('turbineType').addEventListener('change', calculateHydropower);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    addDam();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      dams.forEach(dam => {
+        if (dam.userData.blades) dam.userData.blades.rotation.x += 0.05;
+      });
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+    setInterval(calculateHydropower, 3000);
+  </script>
+</body>
+</html>

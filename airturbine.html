@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D редактор — Ветряные мельницы + Энергетическая аналитика</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+
+    /* LEFT PANEL */
+    #info{
+      position:absolute;
+      top:20px; left:20px;
+      background: rgba(20,20,20,0.95);
+      backdrop-filter: blur(5px);
+      color:#fff;
+      padding:20px;
+      border-radius:12px;
+      border:1px solid #444;
+      width:300px;
+      z-index:100;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+      pointer-events: all;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      transition: all 0.3s ease;
+    }
+
+    #info.collapsed {
+      width: 70px;
+      padding: 20px 10px;
+    }
+
+    #info.collapsed h2,
+    #info.collapsed .btn:not(.collapse-btn),
+    #info.collapsed .slider-container,
+    #info.collapsed .coord-control,
+    #info.collapsed #selected-info,
+    #info.collapsed h3,
+    #info.collapsed .hint,
+    #info.collapsed .status,
+    #info.collapsed .value-badge {
+      display: none;
+    }
+
+    #info.collapsed .btn {
+      display: none;
+    }
+
+    #info.collapsed #addWindmillBtn,
+    #info.collapsed #deleteBtn {
+      display: block;
+      width: 50px;
+      height: 50px;
+      padding: 0;
+      border-radius: 10px;
+      font-size: 24px;
+      line-height: 50px;
+      text-align: center;
+      margin: 5px auto;
+    }
+
+    #info.collapsed #addWindmillBtn span,
+    #info.collapsed #deleteBtn span {
+      display: none;
+    }
+
+    #info.collapsed #addWindmillBtn::before {
+      content: "+";
+    }
+    #info.collapsed #deleteBtn::before {
+      content: "🗑";
+    }
+
+    /* RIGHT PANEL */
+    #inspector{
+      position:absolute;
+      top:20px; right:20px;
+      background: rgba(20,20,20,0.95);
+      backdrop-filter: blur(6px);
+      color:#fff;
+      padding:18px;
+      border-radius:12px;
+      border:1px solid #444;
+      width:360px;
+      z-index:100;
+      box-shadow: 0 6px 26px rgba(0,0,0,0.8);
+      pointer-events: all;
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      transition: all 0.3s ease;
+    }
+
+    #inspector.collapsed {
+      width: 70px;
+      padding: 18px 10px;
+    }
+
+    #inspector.collapsed h2,
+    #inspector.collapsed .ins-section,
+    #inspector.collapsed .field,
+    #inspector.collapsed button:not(.collapse-btn),
+    #inspector.collapsed .kv,
+    #inspector.collapsed .chip,
+    #inspector.collapsed .warn,
+    #inspector.collapsed .ok,
+    #inspector.collapsed .hint {
+      display: none;
+    }
+
+    .collapse-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 40px;
+      height: 40px;
+      background: #333;
+      border: 1px solid #666;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+      z-index: 200;
+    }
+    .collapse-btn:hover {
+      background: #555;
+      border-color: #888;
+    }
+
+    #inspector .collapse-btn { right: 10px; left: auto; }
+    #info .collapse-btn { right: 10px; left: auto; }
+    #info.collapsed .collapse-btn { display: flex; }
+    #inspector.collapsed .collapse-btn { display: flex; }
+
+    #info h2{
+      margin:0 0 15px 0;
+      color:#fff;
+      font-size:1.4rem;
+      border-bottom: 1px solid #444;
+      padding-bottom: 8px;
+      font-weight: 300;
+      letter-spacing: 1px;
+    }
+
+    #inspector h2{
+      margin:0 0 12px 0;
+      color:#fff;
+      font-size:1.15rem;
+      border-bottom: 1px solid #444;
+      padding-bottom: 8px;
+      font-weight: 300;
+      letter-spacing: 1px;
+    }
+
+    /* nice scrollbars */
+    #info::-webkit-scrollbar, #inspector::-webkit-scrollbar { width: 10px; }
+    #info::-webkit-scrollbar-thumb, #inspector::-webkit-scrollbar-thumb{
+      background: rgba(255,255,255,0.2);
+      border-radius: 999px;
+      border: 2px solid rgba(0,0,0,0.5);
+    }
+    #info::-webkit-scrollbar-track, #inspector::-webkit-scrollbar-track{
+      background: rgba(0,0,0,0.3);
+      border-radius: 999px;
+    }
+
+    .btn{
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      padding:10px 15px;
+      font-size:1rem;
+      font-weight:300;
+      border-radius:6px;
+      cursor:pointer;
+      margin:5px 0;
+      transition: 0.2s;
+      width:100%;
+      letter-spacing: 0.5px;
+    }
+    .btn:hover{ background: #444; border-color: #777; }
+    .btn.secondary{
+      background: #222;
+      color:#fff;
+      border:1px solid #444;
+    }
+    .btn.secondary:hover{ background: #2a2a2a; }
+
+    .btn.danger{
+      background: #442222;
+      color:#fff;
+      border:1px solid #663333;
+    }
+    .btn.danger:hover{ background: #552222; }
+
+    .btn.primary{
+      background: #2a4a2a;
+      border-color: #3a6a3a;
+    }
+    .btn.primary:hover{
+      background: #3a5a3a;
+    }
+
+    .slider-container{ margin-bottom: 15px; }
+    .slider-container label{
+      display:flex; justify-content:space-between;
+      color:#ccc; font-size:0.9rem; margin-bottom:5px;
+    }
+    .slider-container input{ width:100%; accent-color: #666; }
+
+    .coord-control{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:5px;
+      margin:15px 0;
+    }
+    .coord-btn{
+      background:#222;
+      border:1px solid #444;
+      color:#fff;
+      padding:8px;
+      border-radius:4px;
+      cursor:pointer;
+      font-weight:300;
+    }
+    .coord-btn:hover{ background:#2a2a2a; border-color:#666; }
+
+    #selected-info{
+      background:#222;
+      padding:12px;
+      border-radius:8px;
+      text-align:center;
+      color:#ccc;
+      font-size:0.9rem;
+      margin:15px 0;
+      border:1px dashed #444;
+    }
+
+    .value-badge{
+      background:#222;
+      padding:3px 8px;
+      border-radius:20px;
+      font-family: monospace;
+      color:#fff;
+      border: 1px solid #444;
+    }
+    .status{
+      color:#0f0;
+      font-size:0.8rem;
+      text-align:center;
+      margin-top:10px;
+      opacity:0.8;
+    }
+
+    /* Inspector blocks */
+    .ins-section{
+      margin-top:12px;
+      padding:12px;
+      border-radius:10px;
+      border: 1px solid #333;
+      background: rgba(0,0,0,0.2);
+    }
+    .ins-title{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      font-weight:400;
+      font-size:0.95rem;
+      margin-bottom:8px;
+      color: #fff;
+    }
+    .chip{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid #444;
+      background: #222;
+      color: #fff;
+    }
+    .kv{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px 10px;
+      font-size:0.9rem;
+      color: #ddd;
+    }
+    .kv .k{ color: #aaa; }
+    .kv .v{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      color: #fff;
+    }
+
+    .field{ display:grid; gap:6px; margin-top:10px; }
+    .field label{ color: #aaa; font-size:0.85rem; }
+    .field input,.field select,.field textarea{
+      width:100%;
+      padding:10px 10px;
+      border-radius:8px;
+      border:1px solid #333;
+      background: #1a1a1a;
+      color: #fff;
+      outline:none;
+    }
+    .field input:focus,.field select:focus,.field textarea:focus{
+      border-color: #666;
+    }
+    .field textarea{ min-height: 70px; resize: vertical; }
+
+    .warn{
+      margin-top:10px;
+      padding:10px;
+      border-radius:10px;
+      border:1px solid #663333;
+      background: #332222;
+      color: #ffaaaa;
+      font-size:0.88rem;
+      line-height:1.35;
+      display:none;
+    }
+    .ok{
+      margin-top:10px;
+      padding:10px;
+      border-radius:10px;
+      border:1px solid #336633;
+      background: #223322;
+      color: #aaffaa;
+      font-size:0.88rem;
+      line-height:1.35;
+      display:none;
+    }
+
+    .hint{
+      margin-top:10px;
+      padding:10px;
+      border-radius:10px;
+      border:1px solid #333;
+      background: #1a1a1a;
+      color: #aaa;
+      font-size:0.85rem;
+      line-height:1.35;
+    }
+
+    /* Энергетические карточки */
+    .energy-card {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    .energy-title {
+      color: #aaa;
+      font-size: 0.85rem;
+      margin-bottom: 5px;
+    }
+    .energy-value {
+      font-size: 2rem;
+      font-weight: 300;
+      color: #fff;
+    }
+    .energy-unit {
+      color: #666;
+      font-size: 0.8rem;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .stat-item {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+    .stat-label {
+      color: #aaa;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+    }
+    .stat-number {
+      color: #fff;
+      font-size: 1.4rem;
+      font-weight: 300;
+    }
+    .stat-desc {
+      color: #666;
+      font-size: 0.7rem;
+    }
+    .efficiency-bar {
+      background: #1a1a1a;
+      height: 4px;
+      border-radius: 2px;
+      margin: 10px 0;
+      overflow: hidden;
+    }
+    .efficiency-fill {
+      height: 100%;
+      background: #4caf50;
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+    .comparison-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #333;
+      color: #ddd;
+      font-size: 0.9rem;
+    }
+    .badge {
+      background: #222;
+      border: 1px solid #444;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      color: #aaa;
+    }
+
+    /* Стили для ползунков */
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      background: #333;
+      border-radius: 2px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 16px;
+      width: 16px;
+      border-radius: 8px;
+      background: #fff;
+      margin-top: -6px;
+      cursor: pointer;
+    }
+    input[type=range]::-moz-range-track {
+      width: 100%;
+      height: 4px;
+      background: #333;
+      border-radius: 2px;
+    }
+    input[type=range]::-moz-range-thumb {
+      height: 16px;
+      width: 16px;
+      border-radius: 8px;
+      background: #fff;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- LEFT PANEL -->
+  <div id="info">
+    <button class="collapse-btn" id="collapseLeftBtn" onclick="toggleLeftPanel()">◀</button>
+    <h2>3D КОНСТРУКТОР</h2>
+    <button class="btn" id="addWindmillBtn"><span>+ Добавить турбину</span></button>
+    <button class="btn danger" id="deleteBtn"><span>🗑 Удалить выбранное</span></button>
+    <!-- Кнопка отправки УДАЛЕНА -->
+    <div class="hint">
+      Выбор: кликни по турбине<br>
+      Удаление: Delete/Backspace
+    </div>
+    <h3 style="margin: 15px 0 10px; color: #fff; font-weight: 300;">РАЗМЕРЫ ТУРБИНЫ</h3>
+    <div class="slider-container">
+      <label>Высота башни <span id="towerHeightValue" class="value-badge">80 м</span></label>
+      <input type="range" id="towerHeight" min="50" max="150" value="80" step="5">
+    </div>
+    <div class="slider-container">
+      <label>Диаметр ротора <span id="rotorDiameterValue" class="value-badge">70 м</span></label>
+      <input type="range" id="rotorDiameter" min="40" max="120" value="70" step="5">
+    </div>
+    <h3 style="margin: 15px 0 10px; color: #fff; font-weight: 300;">ПОЗИЦИЯ (локально)</h3>
+    <div class="coord-control">
+      <button class="coord-btn" id="moveLeft">X-</button>
+      <button class="coord-btn" id="moveRight">X+</button>
+      <button class="coord-btn" id="moveDown">Y-</button>
+      <button class="coord-btn" id="moveUp">Y+</button>
+      <button class="coord-btn" id="moveBack">Z-</button>
+      <button class="coord-btn" id="moveForward">Z+</button>
+    </div>
+    <div id="selected-info">👆 Кликни по турбине для выбора</div>
+    <div id="statusMsg" class="status"></div>
+  </div>
+
+  <!-- RIGHT PANEL - ENERGY INSPECTOR -->
+  <div id="inspector">
+    <button class="collapse-btn" id="collapseRightBtn" onclick="toggleRightPanel()">▶</button>
+    <h2>ENERGY INSPECTOR</h2>
+
+    <div class="ins-section">
+      <div class="ins-title">
+        <span>Текущий объект</span>
+        <span class="chip" id="turbineId">W001</span>
+      </div>
+      <div class="kv">
+        <div class="k">Позиция</div><div class="v" id="turbinePos">—</div>
+        <div class="k">Высота башни</div><div class="v" id="turbineHeight">80 м</div>
+        <div class="k">Диаметр ротора</div><div class="v" id="turbineRotor">70 м</div>
+        <div class="k">Кол-во турбин</div><div class="v" id="turbineCount">2</div>
+      </div>
+    </div>
+
+    <div class="ins-section">
+      <div class="ins-title">
+        <span>Выработка энергии</span>
+      </div>
+      <div class="energy-card">
+        <div class="energy-title">ТЕКУЩАЯ МОЩНОСТЬ</div>
+        <div class="energy-value" id="currentPower">245</div>
+        <div class="energy-unit">кВт</div>
+        <div class="efficiency-bar">
+          <div class="efficiency-fill" id="efficiencyBar" style="width: 78%"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+          <span class="badge" id="windSpeed">8.5 м/с</span>
+          <span class="badge" id="efficiency">78% КПД</span>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-label">В ЧАС</div>
+          <div class="stat-number" id="energyHour">245</div>
+          <div class="stat-desc">кВт·ч</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">В ДЕНЬ</div>
+          <div class="stat-number" id="energyDay">5,880</div>
+          <div class="stat-desc">кВт·ч</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">В МЕСЯЦ</div>
+          <div class="stat-number" id="energyMonth">176k</div>
+          <div class="stat-desc">кВт·ч</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">В ГОД</div>
+          <div class="stat-number" id="energyYear">2.1M</div>
+          <div class="stat-desc">кВт·ч</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ins-section">
+      <div class="ins-title">
+        <span>Экологический эффект</span>
+      </div>
+      <div class="kv">
+        <div class="k">Сэкономлено угля</div><div class="v" id="coalSaved">856 т</div>
+        <div class="k">CO₂ предотвращено</div><div class="v" id="co2Saved">2,145 т</div>
+        <div class="k">Домов обеспечено</div><div class="v" id="homesPowered">65</div>
+        <div class="k">Эквивалент деревьев</div><div class="v" id="treesPlanted">3,218</div>
+      </div>
+    </div>
+
+    <div class="ins-section">
+      <div class="ins-title">
+        <span>Параметры турбины</span>
+      </div>
+      <div class="field">
+        <label>Тип генератора</label>
+        <select id="generatorType">
+          <option value="synch">Синхронный</option>
+          <option value="asynch" selected>Асинхронный</option>
+          <option value="perm">Постоянные магниты</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Режим работы</label>
+        <select id="operationMode">
+          <option value="normal">Стандартный</option>
+          <option value="boost">Форсированный</option>
+          <option value="eco">Эко-режим</option>
+        </select>
+      </div>
+      <div class="kv" style="margin-top: 10px;">
+        <div class="k">Коэф. мощности</div><div class="v" id="powerFactor">0.42</div>
+        <div class="k">Доход в месяц</div><div class="v" id="monthlyRevenue">€17.6k</div>
+        <div class="k">Окупаемость</div><div class="v" id="paybackPeriod">7.2 г</div>
+        <div class="k">Наработка</div><div class="v" id="operatingHours">12.4k ч</div>
+      </div>
+    </div>
+
+    <div id="warnBox" class="warn"></div>
+    <div id="okBox" class="ok">✓ Все параметры в норме</div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // ======= ФУНКЦИИ ДЛЯ СВОРАЧИВАНИЯ =======
+    window.toggleLeftPanel = function() {
+      const panel = document.getElementById('info');
+      const btn = document.getElementById('collapseLeftBtn');
+      panel.classList.toggle('collapsed');
+      btn.textContent = panel.classList.contains('collapsed') ? '▶' : '◀';
+    };
+    window.toggleRightPanel = function() {
+      const panel = document.getElementById('inspector');
+      const btn = document.getElementById('collapseRightBtn');
+      panel.classList.toggle('collapsed');
+      btn.textContent = panel.classList.contains('collapsed') ? '◀' : '▶';
+    };
+
+    // ======= Scene =======
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(15, 8, 20);
+    camera.lookAt(0, 4, 0);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2.2;
+    controls.target.set(0, 4, 0);
+
+    // Lights
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(5, 10, 7);
+    dirLight.castShadow = true;
+    dirLight.receiveShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+    scene.add(new THREE.AmbientLight(0x404060));
+    const fillLight = new THREE.PointLight(0x446688, 0.5);
+    fillLight.position.set(2, 4, 3);
+    scene.add(fillLight);
+
+    // Grid
+    const gridHelper = new THREE.GridHelper(40, 20, 0x888888, 0x444444);
+    gridHelper.position.y = 0;
+    scene.add(gridHelper);
+
+    // State
+    const windmills = [];
+    let selectedWindmill = null;
+
+    // ======= СОЗДАНИЕ ВЕТРЯНОЙ ТУРБИНЫ =======
+    function createWindmill(position = null, heightScale = 1.0) {
+      const group = new THREE.Group();
+      const towerHeight = 8 * heightScale;
+      const towerRadius = 0.8 * heightScale;
+      const bladeLength = 5 * heightScale;
+
+      const baseGeo = new THREE.CylinderGeometry(1.2 * heightScale, 1.5 * heightScale, 0.5 * heightScale, 8);
+      const baseMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.7 });
+      const base = new THREE.Mesh(baseGeo, baseMat);
+      base.position.y = 0.25 * heightScale;
+      base.castShadow = true;
+      base.receiveShadow = true;
+      group.add(base);
+
+      const towerGeo = new THREE.CylinderGeometry(towerRadius, towerRadius * 1.2, towerHeight, 8);
+      const towerMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.4, metalness: 0.3 });
+      const tower = new THREE.Mesh(towerGeo, towerMat);
+      tower.position.y = towerHeight/2 + 0.5 * heightScale;
+      tower.castShadow = true;
+      tower.receiveShadow = true;
+      group.add(tower);
+
+      const nacelleGeo = new THREE.BoxGeometry(1.5 * heightScale, 0.8 * heightScale, 2 * heightScale);
+      const nacelleMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.5 });
+      const nacelle = new THREE.Mesh(nacelleGeo, nacelleMat);
+      nacelle.position.y = towerHeight + 0.5 * heightScale;
+      nacelle.position.z = 0.5 * heightScale;
+      nacelle.castShadow = true;
+      nacelle.receiveShadow = true;
+      group.add(nacelle);
+
+      const hubGeo = new THREE.SphereGeometry(0.6 * heightScale, 16);
+      const hubMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0x442200 });
+      const hub = new THREE.Mesh(hubGeo, hubMat);
+      hub.position.y = towerHeight + 0.5 * heightScale;
+      hub.position.z = 1.5 * heightScale;
+      hub.castShadow = true;
+      hub.receiveShadow = true;
+      group.add(hub);
+
+      const bladesGroup = new THREE.Group();
+      bladesGroup.position.y = towerHeight + 0.5 * heightScale;
+      bladesGroup.position.z = 1.5 * heightScale;
+      for (let i = 0; i < 3; i++) {
+        const bladeGroup = new THREE.Group();
+        const angle = (i * Math.PI * 2 / 3);
+        const bladeGeo = new THREE.BoxGeometry(0.3 * heightScale, 0.8 * heightScale, bladeLength);
+        const bladeMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        const blade = new THREE.Mesh(bladeGeo, bladeMat);
+        blade.position.z = bladeLength/2;
+        blade.castShadow = true;
+        blade.receiveShadow = true;
+        bladeGroup.add(blade);
+
+        const tipGeo = new THREE.BoxGeometry(0.4 * heightScale, 0.6 * heightScale, 0.5 * heightScale);
+        const tipMat = new THREE.MeshStandardMaterial({ color: 0xffaa00 });
+        const tip = new THREE.Mesh(tipGeo, tipMat);
+        tip.position.z = bladeLength + 0.3 * heightScale;
+        tip.castShadow = true;
+        tip.receiveShadow = true;
+        bladeGroup.add(tip);
+
+        bladeGroup.rotation.y = angle;
+        bladeGroup.rotation.x = 0.1;
+        bladesGroup.add(bladeGroup);
+      }
+      group.add(bladesGroup);
+
+      const tailGeo = new THREE.BoxGeometry(0.2 * heightScale, 0.4 * heightScale, 1.5 * heightScale);
+      const tailMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa });
+      const tail = new THREE.Mesh(tailGeo, tailMat);
+      tail.position.y = towerHeight + 0.5 * heightScale;
+      tail.position.z = -1.2 * heightScale;
+      tail.castShadow = true;
+      tail.receiveShadow = true;
+      group.add(tail);
+
+      group.userData.blades = bladesGroup;
+      group.userData.heightScale = heightScale;
+      if (position) group.position.copy(position);
+      return group;
+    }
+
+    function updateEnergyMetrics() {
+      const count = windmills.length;
+      document.getElementById('turbineCount').textContent = count;
+      if (count === 0) {
+        document.getElementById('currentPower').textContent = '0';
+        document.getElementById('energyHour').textContent = '0';
+        document.getElementById('energyDay').textContent = '0';
+        document.getElementById('energyMonth').textContent = '0';
+        document.getElementById('energyYear').textContent = '0';
+        document.getElementById('windSpeed').textContent = '0 м/с';
+        document.getElementById('efficiency').textContent = '0% КПД';
+        document.getElementById('coalSaved').textContent = '0 т';
+        document.getElementById('co2Saved').textContent = '0 т';
+        document.getElementById('homesPowered').textContent = '0';
+        document.getElementById('treesPlanted').textContent = '0';
+        document.getElementById('efficiencyBar').style.width = '0%';
+        return;
+      }
+      const towerHeight = parseFloat(document.getElementById('towerHeight').value);
+      const rotorDiameter = parseFloat(document.getElementById('rotorDiameter').value);
+      const generatorType = document.getElementById('generatorType').value;
+      const operationMode = document.getElementById('operationMode').value;
+      const airDensity = 1.225;
+      const sweptArea = Math.PI * Math.pow(rotorDiameter / 2, 2);
+      const windSpeed = 7.5 + Math.random() * 3;
+      const cp = 0.45;
+      let basePowerKW = 0.5 * airDensity * sweptArea * Math.pow(windSpeed, 3) * cp / 1000;
+      basePowerKW *= (towerHeight / 80);
+      if (generatorType === 'synch') basePowerKW *= 1.05;
+      if (generatorType === 'perm') basePowerKW *= 1.1;
+      if (operationMode === 'boost') basePowerKW *= 1.15;
+      if (operationMode === 'eco') basePowerKW *= 0.9;
+      const totalPowerKW = basePowerKW * count;
+      const displayPower = Math.min(5000, Math.round(totalPowerKW));
+      const hourEnergy = displayPower;
+      const dayEnergy = hourEnergy * 24;
+      const monthEnergy = dayEnergy * 30;
+      const yearEnergy = monthEnergy * 12;
+      const coalSaved = Math.round(yearEnergy * 0.0004);
+      const co2Saved = Math.round(yearEnergy * 0.001);
+      const homesPowered = Math.round(yearEnergy / 33000);
+      const treesPlanted = Math.round(co2Saved * 1.5);
+      const monthlyRevenue = Math.round(monthEnergy * 0.1);
+      const paybackPeriod = (1500000 / (monthlyRevenue * 12)).toFixed(1);
+      document.getElementById('currentPower').textContent = displayPower.toLocaleString();
+      document.getElementById('energyHour').textContent = displayPower.toLocaleString();
+      document.getElementById('energyDay').textContent = Math.round(dayEnergy).toLocaleString();
+      document.getElementById('energyMonth').textContent = (monthEnergy/1000).toFixed(0) + 'k';
+      document.getElementById('energyYear').textContent = (yearEnergy/1000000).toFixed(1) + 'M';
+      document.getElementById('windSpeed').textContent = windSpeed.toFixed(1) + ' м/с';
+      const efficiency = Math.min(100, Math.round((basePowerKW / 2000) * 100));
+      document.getElementById('efficiency').textContent = efficiency + '% КПД';
+      document.getElementById('efficiencyBar').style.width = efficiency + '%';
+      document.getElementById('coalSaved').textContent = coalSaved.toLocaleString() + ' т';
+      document.getElementById('co2Saved').textContent = co2Saved.toLocaleString() + ' т';
+      document.getElementById('homesPowered').textContent = homesPowered.toLocaleString();
+      document.getElementById('treesPlanted').textContent = treesPlanted.toLocaleString();
+      document.getElementById('powerFactor').textContent = (cp + (Math.random() * 0.05 - 0.025)).toFixed(2);
+      document.getElementById('monthlyRevenue').textContent = '€' + (monthlyRevenue/1000).toFixed(1) + 'k';
+      document.getElementById('paybackPeriod').textContent = paybackPeriod + ' г';
+      document.getElementById('operatingHours').textContent = (Math.round(12.4 + Math.random())).toFixed(1) + 'k ч';
+      if (selectedWindmill) {
+        const pos = selectedWindmill.position;
+        document.getElementById('turbinePos').textContent = `x=${pos.x.toFixed(1)} y=${pos.y.toFixed(1)} z=${pos.z.toFixed(1)}`;
+        document.getElementById('selected-info').innerHTML = `✓ Выбран: турбина<br>X=${pos.x.toFixed(2)} м Y=${pos.y.toFixed(2)} м Z=${pos.z.toFixed(2)} м`;
+      }
+    }
+
+    function addWindmill() {
+      const windmill = createWindmill(null, 1.0);
+      windmill.position.x = (Math.random() - 0.5) * 15;
+      windmill.position.z = (Math.random() - 0.5) * 15;
+      windmill.position.y = 0;
+      windmill.userData.id = 'W' + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      scene.add(windmill);
+      windmills.push(windmill);
+      selectedWindmill = windmill;
+      updateSelectionHighlight();
+      updateEnergyMetrics();
+      showStatus("✓ Турбина добавлена");
+    }
+
+    function updateSelectionHighlight() {
+      windmills.forEach(w => {
+        w.traverse(node => {
+          if (node.isMesh && node.material) {
+            if (Array.isArray(node.material)) {
+              node.material.forEach(m => { if (m.emissive) m.emissive.setHex(0x000000); });
+            } else if (node.material.emissive) {
+              node.material.emissive.setHex(0x000000);
+            }
+          }
+        });
+      });
+      if (selectedWindmill) {
+        selectedWindmill.traverse(node => {
+          if (node.isMesh && node.material) {
+            if (Array.isArray(node.material)) {
+              node.material.forEach(m => { if (m.emissive) m.emissive.setHex(0x333333); });
+            } else if (node.material.emissive) {
+              node.material.emissive.setHex(0x333333);
+            }
+          }
+        });
+        document.getElementById('turbineId').textContent = selectedWindmill.userData.id || 'W001';
+        const pos = selectedWindmill.position;
+        document.getElementById('turbinePos').textContent = `x=${pos.x.toFixed(1)} y=${pos.y.toFixed(1)} z=${pos.z.toFixed(1)}`;
+        document.getElementById('selected-info').innerHTML = `✓ Выбран: турбина<br>X=${pos.x.toFixed(2)} м Y=${pos.y.toFixed(2)} м Z=${pos.z.toFixed(2)} м`;
+        document.getElementById('okBox').style.display = 'block';
+        document.getElementById('warnBox').style.display = 'none';
+      } else {
+        document.getElementById('selected-info').innerHTML = '👆 Кликни по турбине для выбора';
+      }
+    }
+
+    function moveSelected(dx, dy, dz) {
+      if (!selectedWindmill) { showStatus("❌ Сначала выберите турбину"); return; }
+      selectedWindmill.position.x += dx;
+      selectedWindmill.position.y += dy;
+      selectedWindmill.position.z += dz;
+      if (selectedWindmill.position.y < 0) selectedWindmill.position.y = 0;
+      if (Math.abs(selectedWindmill.position.x) > 20) selectedWindmill.position.x = Math.sign(selectedWindmill.position.x) * 20;
+      if (Math.abs(selectedWindmill.position.z) > 20) selectedWindmill.position.z = Math.sign(selectedWindmill.position.z) * 20;
+      updateSelectionHighlight();
+      updateEnergyMetrics();
+      showStatus(`📍 Новая позиция: (${selectedWindmill.position.x.toFixed(1)}, ${selectedWindmill.position.y.toFixed(1)}, ${selectedWindmill.position.z.toFixed(1)})`);
+    }
+
+    function deleteSelected() {
+      if (!selectedWindmill) { showStatus("❌ Нечего удалять"); return; }
+      scene.remove(selectedWindmill);
+      const index = windmills.indexOf(selectedWindmill);
+      if (index !== -1) windmills.splice(index, 1);
+      selectedWindmill = windmills[0] || null;
+      updateSelectionHighlight();
+      updateEnergyMetrics();
+      showStatus("🗑 Турбина удалена");
+    }
+
+    function showStatus(msg) {
+      const statusEl = document.getElementById('statusMsg');
+      statusEl.textContent = msg;
+      setTimeout(() => statusEl.textContent = '', 3000);
+    }
+
+    // Raycast select
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    function onClick(event) {
+      const el = document.elementFromPoint(event.clientX, event.clientY);
+      if (el && (el.closest('#info') || el.closest('#inspector'))) return;
+      mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+      mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(windmills, true);
+      if (intersects.length > 0) {
+        let obj = intersects[0].object;
+        while (obj && !windmills.includes(obj) && obj.parent) obj = obj.parent;
+        if (obj && windmills.includes(obj)) {
+          selectedWindmill = obj;
+          updateSelectionHighlight();
+          updateEnergyMetrics();
+        }
+      }
+    }
+
+    // UI Handlers
+    renderer.domElement.addEventListener('click', onClick);
+    document.getElementById('addWindmillBtn').addEventListener('click', addWindmill);
+    document.getElementById('deleteBtn').addEventListener('click', deleteSelected);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === "Delete" || e.key === "Backspace") deleteSelected();
+    });
+    document.getElementById('moveLeft').addEventListener('click', () => moveSelected(-1, 0, 0));
+    document.getElementById('moveRight').addEventListener('click', () => moveSelected(1, 0, 0));
+    document.getElementById('moveDown').addEventListener('click', () => moveSelected(0, -0.5, 0));
+    document.getElementById('moveUp').addEventListener('click', () => moveSelected(0, 0.5, 0));
+    document.getElementById('moveBack').addEventListener('click', () => moveSelected(0, 0, -1));
+    document.getElementById('moveForward').addEventListener('click', () => moveSelected(0, 0, 1));
+
+    document.getElementById('towerHeight').addEventListener('input', (e) => {
+      document.getElementById('towerHeightValue').textContent = e.target.value + ' м';
+      document.getElementById('turbineHeight').textContent = e.target.value + ' м';
+      updateEnergyMetrics();
+    });
+    document.getElementById('rotorDiameter').addEventListener('input', (e) => {
+      document.getElementById('rotorDiameterValue').textContent = e.target.value + ' м';
+      document.getElementById('turbineRotor').textContent = e.target.value + ' м';
+      updateEnergyMetrics();
+    });
+    document.getElementById('generatorType').addEventListener('change', updateEnergyMetrics);
+    document.getElementById('operationMode').addEventListener('change', updateEnergyMetrics);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Add initial windmills
+    addWindmill();
+    setTimeout(() => addWindmill(), 100);
+
+    // Animation
+    function animate() {
+      requestAnimationFrame(animate);
+      windmills.forEach(windmill => {
+        if (windmill.userData.blades) windmill.userData.blades.rotation.y += 0.02;
+      });
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+    setInterval(updateEnergyMetrics, 5000);
+  </script>
+</body>
+</html>

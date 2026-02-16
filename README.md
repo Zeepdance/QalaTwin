@@ -1,5 +1,5 @@
 # QalaTwin
-An interactive platform for modeling urban infrastructure and analyzing the consequences of planning decisions in real time.
+An interactive platform for modeling urban infrastructure and analyzing the consequences of planning decisions in real time. **"C:\Users\Acer\Desktop\my arts\project QalaTwin\MVPPPP\public\index.html"**
 * About the Project
 QalaTwin is a digital twin of the city of Ust-Kamenogorsk (East Kazakhstan Region) that allows users to visualize and assess the impact of new urban developments—such as residential complexes, schools, parks, bridges, and industrial zones—on key city metrics. The project addresses the lack of forecasting tools in urban planning: instead of guessing the outcome of a decision, users can run a "What if..." experiment and see the results instantly.
 
